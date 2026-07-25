@@ -6,6 +6,8 @@ ARG APT_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    CLOAKBROWSER_AUTO_UPDATE=false \
+    CLOAKBROWSER_WIDEVINE=0 \
     HOME=/data
 
 WORKDIR /app
@@ -30,12 +32,17 @@ RUN APT_MIRROR_CLEAN="$(echo "${APT_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')"
         libasound2 \
         libatk-bridge2.0-0 \
         libatk1.0-0 \
+        libatspi2.0-0 \
         libcairo2 \
+        libcairo-gobject2 \
         libcups2 \
         libdbus-1-3 \
         libdrm2 \
+        libfontconfig1 \
+        libgdk-pixbuf-2.0-0 \
         libgbm1 \
         libglib2.0-0 \
+        libgtk-3-0 \
         libnspr4 \
         libnss3 \
         libpango-1.0-0 \
@@ -49,6 +56,9 @@ RUN APT_MIRROR_CLEAN="$(echo "${APT_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')"
         libxfixes3 \
         libxkbcommon0 \
         libxrandr2 \
+        libxshmfence1 \
+        libxss1 \
+        libxtst6 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --home-dir /data --shell /usr/sbin/nologin gateway \
@@ -62,9 +72,9 @@ COPY --chown=gateway:gateway app ./app
 
 USER gateway
 
-# The pinned wrapper verifies the downloaded browser artifact before extraction.
-# Keeping it in the image avoids a production first-request download.
-RUN python -m cloakbrowser install
+# Pre-download with the library API used by CloakBrowser's official Dockerfile.
+# The artifact is signature/checksum verified and no browser process is launched here.
+RUN python -c "from cloakbrowser import ensure_binary; ensure_binary()"
 
 EXPOSE 8090
 
