@@ -2,6 +2,7 @@ ARG DOCKER_PROXY=docker.m.daocloud.io
 FROM ${DOCKER_PROXY}/library/python:3.12-slim-bookworm
 ARG APT_MIRROR=https://mirrors.aliyun.com/debian
 ARG APT_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+ARG PIP_MIRROR_URL=https://mirrors.aliyun.com/pypi/simple
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -15,9 +16,10 @@ WORKDIR /app
 # Keep Python dependency downloads reusable even when a later system package or
 # application source layer changes. BuildKit owns this cache, so it is not
 # included in the final image.
-COPY requirements.txt ./
+COPY requirements.txt requirements-heavy.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    pip install --requirement requirements.txt
+    pip install --index-url "${PIP_MIRROR_URL}" --requirement requirements-heavy.txt \
+    && pip install --requirement requirements.txt
 
 # Runtime dependencies and representative fonts required by Chromium in a slim image.
 RUN APT_MIRROR_CLEAN="$(echo "${APT_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')" \

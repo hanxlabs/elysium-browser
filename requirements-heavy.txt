@@ -1,0 +1,4 @@
+# Large binary wheels are installed from the configurable domestic mirror in
+# Dockerfile before the complete requirements pass.
+playwright==1.61.0
+cryptography==49.0.0
