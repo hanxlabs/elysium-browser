@@ -1,0 +1,24 @@
+services:
+  elysium-browser-gateway:
+    build:
+      context: .
+    image: elysium-browser-gateway:1.0.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Preserves the verified CloakBrowser cache across container replacement.
+      - browser-cache:/data/.cloakbrowser
+    networks:
+      - elysium-internal
+    # Deliberately no host port mapping. Elysium reaches this service by its name
+    # on the internal Docker network.
+
+volumes:
+  browser-cache:
+
+networks:
+  elysium-internal:
+    name: ${ELYSIUM_DOCKER_NETWORK:-elysium-internal}
+    external: true
+
