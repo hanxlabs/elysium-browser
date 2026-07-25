@@ -1,5 +1,7 @@
 ARG DOCKER_PROXY=docker.m.daocloud.io
 FROM ${DOCKER_PROXY}/library/python:3.12-slim-bookworm
+ARG APT_MIRROR=https://mirrors.aliyun.com/debian
+ARG APT_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -9,7 +11,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Runtime dependencies and representative fonts required by Chromium in a slim image.
-RUN apt-get update \
+RUN APT_MIRROR_CLEAN="$(echo "${APT_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')" \
+    && APT_SECURITY_MIRROR_CLEAN="$(echo "${APT_SECURITY_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')" \
+    && if [ -n "${APT_MIRROR_CLEAN}" ] && [ -f /etc/apt/sources.list ]; then \
+        sed -i "s|http://deb.debian.org/debian|${APT_MIRROR_CLEAN}|g" /etc/apt/sources.list; \
+    fi \
+    && if [ -n "${APT_MIRROR_CLEAN}" ] && [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i "s|http://deb.debian.org/debian|${APT_MIRROR_CLEAN}|g; s|http://deb.debian.org/debian-security|${APT_SECURITY_MIRROR_CLEAN}|g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
