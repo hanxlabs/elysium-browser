@@ -183,11 +183,17 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 page.locator(self._PASSWORD_SELECTOR).fill(password)
                 page.locator(self._CAPTCHA_INPUT_SELECTOR).fill(code)
                 stage = "submit-login-form"
-                page.locator(self._SUBMIT_SELECTOR).click()
-                page.wait_for_load_state("domcontentloaded")
+                with page.expect_navigation(
+                    wait_until="domcontentloaded",
+                    timeout=timeout_seconds * 1000,
+                ) as navigation_info:
+                    page.locator(self._SUBMIT_SELECTOR).click()
+                navigation_response = navigation_info.value
+                stage = "wait-login-result"
+                page.wait_for_load_state("load", timeout=timeout_seconds * 1000)
                 self._ensure_same_origin(page.url, site_origin)
                 stage = "inspect-login-result"
-                html = page.content()
+                html = self._read_stable_page_content(page, timeout_seconds=5)
                 outcome = self._classify_result(page.url, html)
                 if outcome == "success":
                     return self._success_response(
@@ -280,6 +286,23 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                         "BTSCHOOL Browser上下文关闭失败: request_id=%s",
                         request.request_id,
                     )
+
+    @staticmethod
+    def _read_stable_page_content(page: object, timeout_seconds: int) -> str:
+        """导航切换期间短暂重试，避免 Playwright 在 frame 更新时读取 DOM。"""
+        deadline = time.monotonic() + timeout_seconds
+        last_error: Exception | None = None
+        while True:
+            try:
+                return str(page.content() or "")
+            except Exception as error:
+                message = str(error).lower()
+                if "page is navigating" not in message and "changing the content" not in message:
+                    raise
+                last_error = error
+                if time.monotonic() >= deadline:
+                    raise last_error
+                time.sleep(0.1)
 
     def _success_response(
         self,
@@ -424,7 +447,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             except Exception as read_error:
                 page_read_error += f" title:{type(read_error).__name__}:{read_error}"
             try:
-                html = str(page.content() or "")
+                html = self._read_stable_page_content(page, timeout_seconds=2)
             except Exception as read_error:
                 page_read_error += f" html:{type(read_error).__name__}:{read_error}"
 
