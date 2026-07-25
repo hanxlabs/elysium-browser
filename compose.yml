@@ -2,7 +2,7 @@ services:
   elysium-browser-gateway:
     build:
       context: .
-    image: elysium-browser-gateway:1.0.0
+    image: elysium-browser-gateway:1.1.0
     restart: unless-stopped
     env_file:
       - .env
@@ -21,4 +21,3 @@ networks:
   elysium-internal:
     name: ${ELYSIUM_DOCKER_NETWORK:-elysium-internal}
     external: true
-

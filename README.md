@@ -1,11 +1,12 @@
 # Elysium Browser Gateway
 
-Elysium 的受限内部浏览器页面抓取服务。它使用固定版本的 CloakBrowser Python wrapper 启动 Chromium，但不暴露 CDP，也不提供登录、验证码处理、任意 JavaScript 执行或通用 HTTP 代理功能。
+Elysium 的受限内部浏览器服务。它使用固定版本的 CloakBrowser Python wrapper 启动 Chromium，但不暴露 CDP、任意 JavaScript 执行或通用 HTTP 代理功能。
 
 ## 范围
 
 - `POST /internal/v1/pages/fetch`：抓取任意公网 HTTP(S) 站点的已渲染 HTML；可携带现有 Cookie，并回传同站 Cookie。
-- 每个请求使用独立浏览器上下文；本版本不保存账号 Profile，也不实现登录或签到。
+- `POST /internal/v1/sites/login`：按 `app/site_login/` 中注册的站点适配器执行一次登录；当前支持 `sunnypt`。
+- 每个请求使用独立浏览器上下文，不保存账号 Profile。站点登录细节必须放在独立适配器中，不能扩展为任意表单或请求代理。
 - 只支持页面导航 `GET`，不支持表单提交、文件下载和任意请求转发。
 - URL、页面所有子资源及重定向均受公网地址校验限制；本机、私网和保留地址会被拒绝。
 
@@ -25,7 +26,9 @@ Elysium 的受限内部浏览器页面抓取服务。它使用固定版本的 Cl
 
    至少设置：
 
-   - `BROWSER_GATEWAY_TOKEN`：Elysium 调用时使用的内部鉴权令牌。
+- `BROWSER_GATEWAY_TOKEN`：Elysium 调用时使用的内部鉴权令牌。
+
+Elysium 服务端也必须配置同值的 `BROWSER_GATEWAY_TOKEN`；该值只用于服务间认证，不应放入账号拓展参数。
 
 3. 构建并启动：
 
@@ -64,6 +67,8 @@ Content-Type: application/json
 ```
 
 响应包含渲染 HTML、最终 URL、导航状态、同站 Cookie 列表和 `challengeDetected` 标识。此标识只用于 Elysium 的失败分类；网关不会尝试处理验证页面。
+
+SunnyPT 登录请求只接受服务端传入的账号凭据，依次完成登录接口、站点会话创建和会话读取，并仅返回新的 Bearer Token。登录失败不会在网关内重试。
 
 ## 更新策略
 
