@@ -166,6 +166,12 @@ def test_btschool_classifies_login_results():
         "https://pt.btschool.club/index.php",
         '<div>欢迎回来</div><a href="logout.php">退出</a>',
     ) == "success"
+    assert BtschoolLoginAdapter._classify_result(
+        "https://pt.btschool.club/login.php",
+        "<title>BTSCHOOL :: 首页</title>"
+        '<div>欢迎回来 <a href="userdetails.php?id=1">tester</a></div>'
+        '<a href="logout.php">退出</a>',
+    ) == "success"
 
 
 def test_btschool_adapter_rejects_non_btschool_target():

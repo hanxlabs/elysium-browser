@@ -94,19 +94,25 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             self._install_request_guard(context, blocked_requests)
             stage = "open-page"
             page = context.new_page()
-            self._install_page_diagnostics(page, request.request_id, username, password)
+            self._install_page_diagnostics(
+                page,
+                request.request_id,
+                username,
+                password,
+                blocked_requests,
+            )
             page.set_default_timeout(timeout_seconds * 1000)
             last_message = "BTSCHOOL 验证码识别失败"
             for attempt in range(self._MAX_ATTEMPTS):
                 stage = "navigate-login-page"
                 navigation_response = page.goto(
                     login_url,
-                    wait_until="domcontentloaded",
+                    wait_until="load",
                     timeout=timeout_seconds * 1000,
                 )
                 self._ensure_same_origin(page.url, site_origin)
                 stage = "inspect-login-page"
-                login_html = page.content()
+                login_html = self._read_stable_page_content(page, timeout_seconds=5)
                 if self._classify_result(page.url, login_html) == "success":
                     logger.info(
                         "BTSCHOOL Browser访问登录页时已处于登录状态: request_id=%s url=%s",
@@ -357,6 +363,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         request_id: str,
         username: str,
         password: str,
+        blocked_requests: list[str],
     ) -> None:
         def log_console(message: object) -> None:
             text = self._redact_text(str(getattr(message, "text", "")), username, password)
@@ -375,10 +382,13 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             )
 
         def log_request_failed(failed_request: object) -> None:
+            failed_url = str(getattr(failed_request, "url", ""))
+            if failed_url in blocked_requests:
+                return
             logger.warning(
                 "BTSCHOOL 页面请求失败: request_id=%s url=%s failure=%s",
                 request_id,
-                self._redact_text(str(getattr(failed_request, "url", "")), username, password),
+                self._redact_text(failed_url, username, password),
                 self._redact_text(str(getattr(failed_request, "failure", "")), username, password),
             )
 
@@ -593,7 +603,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             ):
                 if len(blocked_requests) < 50:
                     blocked_requests.append(str(route.request.url))
-                logger.warning(
+                logger.debug(
                     "BTSCHOOL 请求被站点域名白名单拦截: url=%s",
                     route.request.url,
                 )
@@ -651,7 +661,12 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         if _CREDENTIAL_ERROR_PATTERN.search(text):
             return "credential_error"
         path = urlparse(final_url).path.rstrip("/")
-        if path in {"", "/index.php"} and _LOGOUT_LINK_PATTERN.search(html):
+        index_title = bool(re.search(r"<title[^>]*>[^<]*首页", html, re.I))
+        authenticated_marker = bool(
+            _LOGOUT_LINK_PATTERN.search(html)
+            or ("欢迎回来" in text and "userdetails.php" in html.lower())
+        )
+        if (path in {"", "/index.php"} or index_title) and authenticated_marker:
             return "success"
         return "unknown"
 
