@@ -5,12 +5,19 @@ ARG APT_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     CLOAKBROWSER_AUTO_UPDATE=false \
     CLOAKBROWSER_WIDEVINE=0 \
     HOME=/data
 
 WORKDIR /app
+
+# Keep Python dependency downloads reusable even when a later system package or
+# application source layer changes. BuildKit owns this cache, so it is not
+# included in the final image.
+COPY requirements.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install --requirement requirements.txt
 
 # Runtime dependencies and representative fonts required by Chromium in a slim image.
 RUN APT_MIRROR_CLEAN="$(echo "${APT_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')" \
@@ -65,16 +72,19 @@ RUN useradd --create-home --home-dir /data --shell /usr/sbin/nologin gateway \
     && mkdir -p /app /data/.cloakbrowser \
     && chown -R gateway:gateway /app /data
 
-COPY requirements.txt ./
-RUN pip install --requirement requirements.txt
-
-COPY --chown=gateway:gateway app ./app
-
 USER gateway
 
 # Pre-download with the library API used by CloakBrowser's official Dockerfile.
-# The artifact is signature/checksum verified and no browser process is launched here.
-RUN python -c "from cloakbrowser import ensure_binary; ensure_binary()"
+# The verified archive/extracted binary is also retained in a BuildKit cache, so
+# dependency-layer changes do not force another 200+ MB network download.
+RUN --mount=type=cache,id=elysium-cloakbrowser-0.5.1,target=/data/.cloakbrowser-download,uid=1000,gid=1000,sharing=locked \
+    CLOAKBROWSER_CACHE_DIR=/data/.cloakbrowser-download \
+    python -c "from cloakbrowser import ensure_binary; ensure_binary()" \
+    && cp -a /data/.cloakbrowser-download/. /data/.cloakbrowser/
+
+# Application-only changes now invalidate this small final source layer, without
+# forcing Python packages or the 200+ MB CloakBrowser binary to download again.
+COPY --chown=gateway:gateway app ./app
 
 EXPOSE 8090
 
