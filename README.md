@@ -5,7 +5,7 @@ Elysium 的受限内部浏览器服务。它使用固定版本的 CloakBrowser P
 ## 范围
 
 - `POST /internal/v1/pages/fetch`：抓取任意公网 HTTP(S) 站点的已渲染 HTML；可携带现有 Cookie，并回传同站 Cookie。
-- `POST /internal/v1/sites/login`：按 `app/site_login/` 中注册的站点适配器执行一次登录；当前支持 `sunnypt`。
+- `POST /internal/v1/sites/login`：按 `app/site_login/` 中注册的站点适配器执行一次登录；当前支持 `sunnypt` 和 `btschool`。
 - 每个请求使用独立浏览器上下文，不保存账号 Profile。站点登录细节必须放在独立适配器中，不能扩展为任意表单或请求代理。
 - 只支持页面导航 `GET`，不支持表单提交、文件下载和任意请求转发。
 - URL、页面所有子资源及重定向均受公网地址校验限制；本机、私网和保留地址会被拒绝。
@@ -68,7 +68,7 @@ Content-Type: application/json
 
 响应包含渲染 HTML、最终 URL、导航状态、同站 Cookie 列表和 `challengeDetected` 标识。此标识只用于 Elysium 的失败分类；网关不会尝试处理验证页面。
 
-SunnyPT 登录请求只接受服务端传入的账号凭据，依次完成登录接口、站点会话创建和会话读取，并仅返回新的 Bearer Token。登录失败不会在网关内重试。
+SunnyPT 登录请求只接受服务端传入的账号凭据，依次完成登录接口、站点会话创建和会话读取，并仅返回新的 Bearer Token。BTSCHOOL 在同一浏览器上下文中截取登录页图片验证码，通过内置 ONNX 模型本地识别后提交表单，成功时返回 Cookie 和后续请求所需 Header；验证码识别失败或站点明确返回验证码错误时最多重试一次，凭据错误不会重试。
 
 ## 更新策略
 

@@ -4,6 +4,7 @@ from app.config import Settings
 from app.models import SiteLoginRequest, SiteLoginResponse
 from app.security import OutboundUrlGuard
 from app.site_login.base import SiteLoginAdapter
+from app.site_login.btschool import BtschoolLoginAdapter
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 
 
@@ -17,7 +18,8 @@ class SiteLoginService:
     ):
         """注册当前网关已支持的站点登录适配器。"""
         self._adapters = adapters if adapters is not None else [
-            SunnyPtLoginAdapter(settings, OutboundUrlGuard())
+            SunnyPtLoginAdapter(settings, OutboundUrlGuard()),
+            BtschoolLoginAdapter(settings, OutboundUrlGuard()),
         ]
 
     def login(self, request: SiteLoginRequest) -> SiteLoginResponse:

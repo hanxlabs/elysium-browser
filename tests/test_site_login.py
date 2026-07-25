@@ -6,6 +6,7 @@ import pytest
 
 from app.config import Settings
 from app.models import SiteLoginRequest
+from app.site_login.btschool import BtschoolLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 
@@ -145,6 +146,43 @@ def test_sunnypt_adapter_rejects_non_sunnypt_target():
                 request_id="request-3",
                 site_key="sunnypt",
                 account_id=1,
+                site_url="https://example.com",
+                credentials={"username": "tester", "password": "secret"},
+            ),
+        )
+
+
+def test_btschool_classifies_login_results():
+    """BTSCHOOL 应区分验证码、凭据错误和已登录首页。"""
+    assert BtschoolLoginAdapter._classify_result(
+        "https://pt.btschool.club/takelogin.php",
+        "<h2>失败</h2><td>图片代码无效！图片代码已被清除！</td>",
+    ) == "captcha_error"
+    assert BtschoolLoginAdapter._classify_result(
+        "https://pt.btschool.club/takelogin.php",
+        "<h2>登录失败！</h2><td>用户名或密码不正确！或者你还没有通过验证</td>",
+    ) == "credential_error"
+    assert BtschoolLoginAdapter._classify_result(
+        "https://pt.btschool.club/index.php",
+        '<div>欢迎回来</div><a href="logout.php">退出</a>',
+    ) == "success"
+
+
+def test_btschool_adapter_rejects_non_btschool_target():
+    """BTSCHOOL 凭据不得发送到第三方域名。"""
+    adapter = BtschoolLoginAdapter(
+        Settings(),
+        _AllowAllGuard(),
+        recognizer=lambda _: "abcd",
+        context_factory=lambda **_: None,
+    )
+
+    with pytest.raises(ValueError, match="站点地址无效"):
+        adapter.login(
+            SiteLoginRequest(
+                request_id="request-4",
+                site_key="btschool",
+                account_id=0,
                 site_url="https://example.com",
                 credentials={"username": "tester", "password": "secret"},
             ),

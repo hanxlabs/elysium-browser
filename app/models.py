@@ -71,7 +71,7 @@ class SiteLoginRequest(BaseModel):
 
     request_id: str = Field(min_length=1, max_length=128)
     site_key: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
-    account_id: int = Field(ge=1)
+    account_id: int = Field(ge=0)
     site_url: HttpUrl
     credentials: dict[str, str] = Field(default_factory=dict, max_length=8)
     timeout_seconds: int | None = Field(default=None, ge=1, le=120)
