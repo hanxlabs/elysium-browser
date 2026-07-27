@@ -68,6 +68,8 @@ RUN APT_MIRROR_CLEAN="$(echo "${APT_MIRROR}" | sed 's#[[:space:]]##g; s#/*$##')"
         libxshmfence1 \
         libxss1 \
         libxtst6 \
+        xauth \
+        xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --home-dir /data --shell /usr/sbin/nologin gateway \
@@ -94,4 +96,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)"]
 
 # CloakBrowser documents asyncio as the safe loop when hosted by uvicorn.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090", "--loop", "asyncio"]
+CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1920x1080x24", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090", "--loop", "asyncio"]

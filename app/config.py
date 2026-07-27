@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     token: str = ""
     headless: bool = True
+    challenge_headed: bool = True
     humanize: bool = True
     human_preset: str = "default"
     max_concurrency: int = Field(default=2, ge=1, le=8)

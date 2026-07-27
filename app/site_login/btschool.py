@@ -602,17 +602,18 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             flags=re.I,
         )
 
-    def _launch_context(self) -> object:
+    def _launch_context(self, *, force_headed: bool = False) -> object:
+        headless = False if force_headed else self._settings.headless
         if self._context_factory is not None:
             return self._context_factory(
-                headless=self._settings.headless,
+                headless=headless,
                 humanize=self._settings.humanize,
                 human_preset=self._settings.human_preset,
             )
         from cloakbrowser import launch_context
 
         return launch_context(
-            headless=self._settings.headless,
+            headless=headless,
             humanize=self._settings.humanize,
             human_preset=self._settings.human_preset,
         )

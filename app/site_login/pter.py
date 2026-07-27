@@ -62,7 +62,9 @@ class PterLoginAdapter(BtschoolLoginAdapter):
         stage = "launch-context"
         blocked_requests: list[str] = []
         try:
-            context = self._launch_context()
+            context = self._launch_context(
+                force_headed=getattr(self._settings, "challenge_headed", True),
+            )
             stage = "install-request-guard"
             self._install_request_guard(context, blocked_requests)
             stage = "open-page"

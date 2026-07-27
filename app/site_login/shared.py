@@ -71,6 +71,7 @@ class SiteDefinition:
     submit_selector: str = "#submit-btn"
     reveal_selector: str | None = None
     unit3d: bool = False
+    cloudflare_managed: bool = False
 
 
 class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
@@ -118,12 +119,25 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         response = None
         stage = "launch-context"
         blocked_requests: list[str] = []
+        runtime_diagnostics: dict[str, list[object]] = {
+            "failedRequests": [],
+            "consoleErrors": [],
+            "pageErrors": [],
+        }
         secrets = [username, password, two_factor_secret]
         try:
-            context = self._launch_context()
+            force_headed = (
+                definition.cloudflare_managed or definition.turnstile
+            ) and getattr(self._settings, "challenge_headed", True)
+            context = self._launch_context(force_headed=force_headed)
             stage = "install-request-guard"
             self._install_multi_request_guard(context, definition, blocked_requests)
             page = context.new_page()
+            self._install_runtime_diagnostics(
+                page,
+                blocked_requests,
+                runtime_diagnostics,
+            )
             page.set_default_timeout(timeout_seconds * 1000)
 
             for attempt in range(1, attempts + 1):
@@ -150,6 +164,23 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                         return self._success(
                             request, started_at, page, context, site_origin, definition,
                         )
+                    if outcome == "cloudflare_timeout":
+                        self._diagnostic(
+                            request,
+                            definition,
+                            stage="cloudflare-timeout",
+                            attempt=attempt,
+                            page=page,
+                            response=response,
+                            blocked=blocked_requests,
+                            secrets=secrets,
+                            runtime=runtime_diagnostics,
+                        )
+                        return self._failure(
+                            request,
+                            started_at,
+                            f"{definition.label}Cloudflare安全验证等待超时",
+                        )
 
                 if definition.reveal_selector:
                     stage = "reveal-login-form"
@@ -160,6 +191,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                     self._diagnostic(
                         request, definition, stage="login-form-missing", attempt=attempt,
                         page=page, response=response, blocked=blocked_requests, secrets=secrets,
+                        runtime=runtime_diagnostics,
                     )
                     return self._failure(
                         request, started_at, f"{definition.label}登录页未找到登录表单",
@@ -182,6 +214,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                             request, definition, stage="captcha-ocr-error", attempt=attempt,
                             page=page, response=response, blocked=blocked_requests,
                             secrets=secrets, error=error,
+                            runtime=runtime_diagnostics,
                         )
                         return self._failure(
                             request, started_at, f"{definition.label}本地OCR识别失败",
@@ -193,6 +226,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                             request, definition, stage="captcha-format-invalid", attempt=attempt,
                             page=page, response=response, blocked=blocked_requests,
                             secrets=secrets,
+                            runtime=runtime_diagnostics,
                         )
                         return self._failure(
                             request, started_at, f"{definition.label}本地OCR结果格式无效",
@@ -245,6 +279,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 self._diagnostic(
                     request, definition, stage=outcome, attempt=attempt, page=page,
                     response=None, blocked=blocked_requests, secrets=secrets,
+                    runtime=runtime_diagnostics,
                 )
                 messages = {
                     "captcha_error": f"{definition.label}图片验证码错误",
@@ -265,6 +300,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
             self._diagnostic(
                 request, definition, stage=stage, attempt=None, page=page,
                 response=response, blocked=blocked_requests, secrets=secrets, error=error,
+                runtime=runtime_diagnostics,
             )
             logger.exception(
                 "%s Browser自动登录异常: request_id=%s stage=%s error_type=%s",
@@ -367,6 +403,48 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         context.route("**/*", guard_route)
 
     @staticmethod
+    def _install_runtime_diagnostics(
+        page: object,
+        blocked: list[str],
+        runtime: dict[str, list[object]],
+    ) -> None:
+        """记录挑战页脚本错误和非白名单拦截导致的请求失败。"""
+
+        def record_failed(request: object) -> None:
+            url = str(getattr(request, "url", ""))
+            if not url or url in blocked:
+                return
+            items = runtime["failedRequests"]
+            if any(isinstance(item, dict) and item.get("url") == url for item in items):
+                return
+            if len(items) < 50:
+                items.append(
+                    {
+                        "url": url,
+                        "failure": str(getattr(request, "failure", "") or ""),
+                    },
+                )
+
+        def record_console(message: object) -> None:
+            message_type = str(getattr(message, "type", "") or "").lower()
+            if message_type not in {"error", "warning"}:
+                return
+            items = runtime["consoleErrors"]
+            text = str(getattr(message, "text", "") or "")
+            if text and text not in items and len(items) < 50:
+                items.append(text)
+
+        def record_page_error(error: object) -> None:
+            items = runtime["pageErrors"]
+            text = str(error or "")
+            if text and text not in items and len(items) < 50:
+                items.append(text)
+
+        page.on("requestfailed", record_failed)
+        page.on("console", record_console)
+        page.on("pageerror", record_page_error)
+
+    @staticmethod
     def _build_origin(site_url: str, definition: SiteDefinition) -> str:
         parsed = urlparse(site_url)
         host = (parsed.hostname or "").lower().rstrip(".")
@@ -448,7 +526,10 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 # 页面正在切换 frame 时继续轮询。
                 pass
             time.sleep(0.25)
-        return self._classify(page.url, last_html, definition), last_html
+        outcome = self._classify(page.url, last_html, definition)
+        if outcome == "unknown" and self._has_cloudflare_challenge(last_html):
+            return "cloudflare_timeout", last_html
+        return outcome, last_html
 
     @staticmethod
     def _has_cloudflare_challenge(html: str) -> bool:
@@ -467,6 +548,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         blocked: list[str],
         secrets: list[str],
         error: Exception | None = None,
+        runtime: dict[str, list[object]] | None = None,
     ) -> None:
         final_url = ""
         title = ""
@@ -495,6 +577,41 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 response_headers = {}
         normalized = {name.lower(): value for name, value in response_headers.items()}
         markers = [marker for marker in _CF_MARKERS if marker in lower_html]
+        challenge_state: dict[str, object] = {}
+        if page is not None:
+            try:
+                challenge_state = dict(
+                    page.evaluate(
+                        """selector => {
+                            const fields = [...document.querySelectorAll(selector)];
+                            return {
+                                responseFieldCount: fields.length,
+                                responseLengths: fields.map(field =>
+                                    typeof field.value === "string" ? field.value.length : 0
+                                ),
+                                webdriver: navigator.webdriver,
+                                userAgent: navigator.userAgent,
+                            };
+                        }""",
+                        self._TURNSTILE_RESPONSE_SELECTOR,
+                    )
+                    or {},
+                )
+                challenge_state["frameUrls"] = [
+                    str(frame.url or "") for frame in page.frames
+                ]
+                challenge_state["cookieNames"] = sorted(
+                    {
+                        str(cookie.get("name", ""))
+                        for cookie in page.context.cookies()
+                        if cookie.get("name")
+                    },
+                )
+            except Exception as state_error:
+                challenge_state = {
+                    "readError": f"{type(state_error).__name__}: {state_error}",
+                }
+        runtime = runtime or {}
         diagnostic = {
             "requestId": request.request_id,
             "siteKey": definition.key,
@@ -518,7 +635,40 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 "mitigated": normalized.get("cf-mitigated", ""),
                 "challengeMarkers": markers,
             },
+            "browser": {
+                "configuredHeadless": bool(self._settings.headless),
+                "challengeHeaded": bool(
+                    getattr(self._settings, "challenge_headed", True),
+                ),
+                "effectiveHeadless": bool(
+                    self._settings.headless
+                    and not (
+                        (definition.cloudflare_managed or definition.turnstile)
+                        and getattr(self._settings, "challenge_headed", True)
+                    )
+                ),
+            },
+            "challengeState": json.loads(
+                self._redact(
+                    json.dumps(challenge_state, ensure_ascii=False, default=str),
+                    secrets,
+                ),
+            ),
             "blockedRequests": [self._redact(value, secrets) for value in blocked[-50:]],
+            "failedRequests": json.loads(
+                self._redact(
+                    json.dumps(runtime.get("failedRequests", []), ensure_ascii=False),
+                    secrets,
+                ),
+            ),
+            "consoleErrors": [
+                self._redact(str(value), secrets)
+                for value in runtime.get("consoleErrors", [])
+            ],
+            "pageErrors": [
+                self._redact(str(value), secrets)
+                for value in runtime.get("pageErrors", [])
+            ],
             "errorType": type(error).__name__ if error else "",
             "error": self._redact(str(error), secrets) if error else "",
         }
