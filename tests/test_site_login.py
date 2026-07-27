@@ -7,8 +7,12 @@ import pytest
 from app.config import Settings
 from app.models import SiteLoginRequest
 from app.site_login.btschool import BtschoolLoginAdapter
+from app.site_login.crabpt import CrabptLoginAdapter
+from app.site_login.ptcafe import PtCafeLoginAdapter
+from app.site_login.pter import PterLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
+from app.totp import generate_totp
 
 
 class _AllowAllGuard:
@@ -191,5 +195,133 @@ def test_btschool_adapter_rejects_non_btschool_target():
                 account_id=0,
                 site_url="https://example.com",
                 credentials={"username": "tester", "password": "secret"},
+            ),
+        )
+
+
+def test_crabpt_classifies_login_results():
+    """蟹黄堡应复用 NexusPHP 验证码错误、凭据错误和首页成功判定。"""
+    assert CrabptLoginAdapter._classify_result(
+        "https://crabpt.vip/takelogin.php",
+        "<h2>失败</h2><td>图片代码无效！图片代码已被清除！</td>",
+    ) == "captcha_error"
+    assert CrabptLoginAdapter._classify_result(
+        "https://crabpt.vip/takelogin.php",
+        "<h2>登录失败！</h2><td>用户名或密码不正确！或者你还没有通过验证</td>",
+    ) == "credential_error"
+    assert CrabptLoginAdapter._classify_result(
+        "https://crabpt.vip/login.php",
+        "<title>蟹黄堡 :: 首页 - Powered by NexusPHP</title>"
+        '<div>欢迎回来 <a href="userdetails.php?id=1">tester</a></div>'
+        '<a href="logout.php">退出</a>',
+    ) == "success"
+
+
+def test_crabpt_adapter_rejects_non_crabpt_target():
+    """蟹黄堡账号凭据不得发送到第三方域名。"""
+    adapter = CrabptLoginAdapter(
+        Settings(),
+        _AllowAllGuard(),
+        recognizer=lambda _: "abcd",
+        context_factory=lambda **_: None,
+    )
+
+    with pytest.raises(ValueError, match="站点地址无效"):
+        adapter.login(
+            SiteLoginRequest(
+                request_id="request-5",
+                site_key="crabpt",
+                account_id=0,
+                site_url="https://example.com",
+                credentials={"username": "tester", "password": "secret"},
+            ),
+        )
+
+
+def test_ptcafe_classifies_login_results():
+    """咖啡应复用 NexusPHP 验证码错误、凭据错误和首页成功判定。"""
+    assert PtCafeLoginAdapter._classify_result(
+        "https://ptcafe.club/takelogin.php",
+        "<h2>失败</h2><td>图片代码无效！图片代码已被清除！</td>",
+    ) == "captcha_error"
+    assert PtCafeLoginAdapter._classify_result(
+        "https://ptcafe.club/takelogin.php",
+        "<h2>登录失败！</h2><td>用户名或密码不正确！或者你还没有通过验证</td>",
+    ) == "credential_error"
+    assert PtCafeLoginAdapter._classify_result(
+        "https://ptcafe.club/login.php",
+        "<title>咖啡 :: 首页 - Powered by NexusPHP</title>"
+        '<div>欢迎回来 <a href="userdetails.php?id=1">tester</a></div>'
+        '<a href="logout.php">退出</a>',
+    ) == "success"
+
+
+def test_ptcafe_adapter_rejects_non_ptcafe_target():
+    """咖啡账号凭据不得发送到第三方域名。"""
+    adapter = PtCafeLoginAdapter(
+        Settings(),
+        _AllowAllGuard(),
+        recognizer=lambda _: "abcd",
+        context_factory=lambda **_: None,
+    )
+
+    with pytest.raises(ValueError, match="站点地址无效"):
+        adapter.login(
+            SiteLoginRequest(
+                request_id="request-6",
+                site_key="ptcafe",
+                account_id=0,
+                site_url="https://example.com",
+                credentials={"username": "tester", "password": "secret"},
+            ),
+        )
+
+
+def test_totp_matches_rfc_6238_sha1_vector():
+    """六位 TOTP 应匹配 RFC 6238 SHA-1 测试向量的后六位。"""
+    assert generate_totp(
+        "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+        timestamp=59,
+    ) == "287082"
+
+
+def test_pter_classifies_login_results():
+    """猫站应识别 Turnstile 失败、账号失败和已登录首页。"""
+    assert PterLoginAdapter._classify_result(
+        "https://pterclub.net/takelogin.php",
+        "<h2>Are you a bot?</h2><td>Verify not success! 验证未通过!</td>",
+    ) == "turnstile_error"
+    assert PterLoginAdapter._classify_result(
+        "https://pterclub.net/takelogin.php",
+        "<h2>登录失败！</h2><td>用户名或密码不正确！或者你还没有通过验证</td>",
+    ) == "credential_error"
+    assert PterLoginAdapter._classify_result(
+        "https://pterclub.net/login.php",
+        "<title>ＰＴ之友俱乐部 :: 首页 PTerClub</title>"
+        '<div>欢迎回来 <a href="userdetails.php?id=1">tester</a></div>'
+        '<a href="#" data-url="logout.php">退出</a>',
+    ) == "success"
+
+
+def test_pter_adapter_rejects_non_pter_target():
+    """猫站账号、密码及2FA密钥不得发送到第三方域名。"""
+    adapter = PterLoginAdapter(
+        Settings(),
+        _AllowAllGuard(),
+        context_factory=lambda **_: None,
+    )
+
+    with pytest.raises(ValueError, match="站点地址无效"):
+        adapter.login(
+            SiteLoginRequest(
+                request_id="request-7",
+                site_key="pter",
+                account_id=0,
+                site_url="https://example.com",
+                credentials={
+                    "username": "tester",
+                    "password": "secret",
+                    "twoFactorSecret": "JBSWY3DPEHPK3PXP",
+                },
             ),
         )

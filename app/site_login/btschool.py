@@ -1,4 +1,4 @@
-"""BTSCHOOL 图片验证码登录适配器。"""
+"""NexusPHP 图片验证码登录适配器。"""
 
 from __future__ import annotations
 
@@ -43,6 +43,8 @@ class CaptchaRecognizer(Protocol):
 class BtschoolLoginAdapter(SiteLoginAdapter):
     """在同一 CloakBrowser 上下文中完成 BTSCHOOL 登录。"""
 
+    _SITE_KEY = "btschool"
+    _SITE_NAME = "BTSCHOOL"
     _HOST = "pt.btschool.club"
     _FORM_SELECTOR = 'form[action$="takelogin.php"][method="post"]'
     _USERNAME_SELECTOR = 'input[name="username"]'
@@ -66,14 +68,14 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         self._context_factory = context_factory
 
     def supports(self, site_key: str) -> bool:
-        return site_key.strip().lower() == "btschool"
+        return site_key.strip().lower() == self._SITE_KEY
 
     def login(self, request: SiteLoginRequest) -> SiteLoginResponse:
         started_at = time.monotonic()
         username = request.credentials.get("username", "").strip()
         password = request.credentials.get("password", "")
         if not username or not password:
-            return self._failure(request, started_at, "BTSCHOOL 自动登录需要账号和密码")
+            return self._failure(request, started_at, f"{self._SITE_NAME} 自动登录需要账号和密码")
 
         site_origin = self._build_site_origin(str(request.site_url))
         login_url = f"{site_origin}/login.php"
@@ -102,7 +104,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 blocked_requests,
             )
             page.set_default_timeout(timeout_seconds * 1000)
-            last_message = "BTSCHOOL 验证码识别失败"
+            last_message = f"{self._SITE_NAME} 验证码识别失败"
             for attempt in range(self._MAX_ATTEMPTS):
                 stage = "navigate-login-page"
                 navigation_response = page.goto(
@@ -115,7 +117,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 login_html = self._read_stable_page_content(page, timeout_seconds=5)
                 if self._classify_result(page.url, login_html) == "success":
                     logger.info(
-                        "BTSCHOOL Browser访问登录页时已处于登录状态: request_id=%s url=%s",
+                        "%s Browser访问登录页时已处于登录状态: request_id=%s url=%s",
+                        self._SITE_NAME,
                         request.request_id,
                         page.url,
                     )
@@ -143,7 +146,11 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                         password=password,
                         blocked_requests=blocked_requests,
                     )
-                    return self._failure(request, started_at, "BTSCHOOL 登录页未找到登录表单")
+                    return self._failure(
+                        request,
+                        started_at,
+                        f"{self._SITE_NAME} 登录页未找到登录表单",
+                    )
                 self._ensure_form_action(form.get_attribute("action"), login_url, site_origin)
 
                 stage = "wait-captcha-image"
@@ -153,7 +160,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                     stage = "recognize-captcha"
                     code = self._recognizer.recognize(image.screenshot())
                 except Exception as error:
-                    last_message = "BTSCHOOL 本地OCR识别失败"
+                    last_message = f"{self._SITE_NAME} 本地OCR识别失败"
                     self._log_page_diagnostic(
                         request_id=request.request_id,
                         stage="captcha-ocr-error",
@@ -169,7 +176,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                         continue
                     return self._failure(request, started_at, last_message)
                 if not _CAPTCHA_PATTERN.fullmatch(code):
-                    last_message = "BTSCHOOL 本地OCR结果格式无效"
+                    last_message = f"{self._SITE_NAME} 本地OCR结果格式无效"
                     self._log_page_diagnostic(
                         request_id=request.request_id,
                         stage="captcha-format-invalid",
@@ -228,10 +235,10 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                     return self._failure(
                         request,
                         started_at,
-                        "BTSCHOOL 用户名或密码不正确，或者账号尚未通过验证",
+                        f"{self._SITE_NAME} 用户名或密码不正确，或者账号尚未通过验证",
                     )
                 if outcome == "captcha_error":
-                    last_message = "BTSCHOOL 图片验证码错误"
+                    last_message = f"{self._SITE_NAME} 图片验证码错误"
                     if attempt + 1 >= self._MAX_ATTEMPTS:
                         self._log_page_diagnostic(
                             request_id=request.request_id,
@@ -256,7 +263,11 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                     password=password,
                     blocked_requests=blocked_requests,
                 )
-                return self._failure(request, started_at, "BTSCHOOL 登录结果无法确认")
+                return self._failure(
+                    request,
+                    started_at,
+                    f"{self._SITE_NAME} 登录结果无法确认",
+                )
             return self._failure(request, started_at, last_message)
         except ValueError:
             raise
@@ -273,7 +284,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 error=error,
             )
             logger.exception(
-                "BTSCHOOL Browser自动登录异常: request_id=%s stage=%s error_type=%s",
+                "%s Browser自动登录异常: request_id=%s stage=%s error_type=%s",
+                self._SITE_NAME,
                 request.request_id,
                 stage,
                 type(error).__name__,
@@ -281,7 +293,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             return self._failure(
                 request,
                 started_at,
-                f"BTSCHOOL 自动登录请求异常（阶段：{stage}，类型：{type(error).__name__}）",
+                f"{self._SITE_NAME} 自动登录请求异常"
+                f"（阶段：{stage}，类型：{type(error).__name__}）",
             )
         finally:
             if context is not None:
@@ -289,7 +302,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                     context.close()
                 except Exception:
                     logger.exception(
-                        "BTSCHOOL Browser上下文关闭失败: request_id=%s",
+                        "%s Browser上下文关闭失败: request_id=%s",
+                        self._SITE_NAME,
                         request.request_id,
                     )
 
@@ -337,12 +351,16 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 password=password,
                 blocked_requests=blocked_requests,
             )
-            return self._failure(request, started_at, "BTSCHOOL 登录成功但未返回 Cookie")
+            return self._failure(
+                request,
+                started_at,
+                f"{self._SITE_NAME} 登录成功但未返回 Cookie",
+            )
         return SiteLoginResponse(
             request_id=request.request_id,
             site_key=request.site_key,
             success=True,
-            message="BTSCHOOL 自动登录成功",
+            message=f"{self._SITE_NAME} 自动登录成功",
             credential=SiteLoginCredential(
                 cookie=cookie,
                 headers={
@@ -368,7 +386,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         def log_console(message: object) -> None:
             text = self._redact_text(str(getattr(message, "text", "")), username, password)
             logger.info(
-                "BTSCHOOL 页面控制台: request_id=%s type=%s text=%s",
+                "%s 页面控制台: request_id=%s type=%s text=%s",
+                self._SITE_NAME,
                 request_id,
                 getattr(message, "type", ""),
                 text,
@@ -376,7 +395,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
 
         def log_page_error(error: object) -> None:
             logger.warning(
-                "BTSCHOOL 页面脚本异常: request_id=%s error=%s",
+                "%s 页面脚本异常: request_id=%s error=%s",
+                self._SITE_NAME,
                 request_id,
                 self._redact_text(str(error), username, password),
             )
@@ -386,7 +406,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             if failed_url in blocked_requests:
                 return
             logger.warning(
-                "BTSCHOOL 页面请求失败: request_id=%s url=%s failure=%s",
+                "%s 页面请求失败: request_id=%s url=%s failure=%s",
+                self._SITE_NAME,
                 request_id,
                 self._redact_text(failed_url, username, password),
                 self._redact_text(str(getattr(failed_request, "failure", "")), username, password),
@@ -406,7 +427,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                     if str(name).lower() not in {"set-cookie", "cookie", "authorization"}
                 }
                 logger.info(
-                    "BTSCHOOL 页面关键响应: %s",
+                    "%s 页面关键响应: %s",
+                    self._SITE_NAME,
                     json.dumps(
                         {
                             "requestId": request_id,
@@ -421,7 +443,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 )
             except Exception:
                 logger.exception(
-                    "BTSCHOOL 页面响应诊断失败: request_id=%s",
+                    "%s 页面响应诊断失败: request_id=%s",
+                    self._SITE_NAME,
                     request_id,
                 )
 
@@ -525,11 +548,13 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             "error": self._redact_text(str(error), username, password) if error is not None else "",
         }
         logger.error(
-            "BTSCHOOL Browser页面诊断: %s",
+            "%s Browser页面诊断: %s",
+            self._SITE_NAME,
             json.dumps(diagnostic, ensure_ascii=False, default=str),
         )
         logger.error(
-            "BTSCHOOL Browser脱敏页面HTML: request_id=%s stage=%s\n%s",
+            "%s Browser脱敏页面HTML: request_id=%s stage=%s\n%s",
+            self._SITE_NAME,
             request_id,
             stage,
             logged_html or "[页面HTML不可用]",
@@ -593,7 +618,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         )
 
     def _install_request_guard(self, context: object, blocked_requests: list[str]) -> None:
-        """只允许本适配器访问 BTSCHOOL 的 HTTPS 站点域名。"""
+        """只允许本适配器访问配置的 HTTPS 站点域名。"""
         def guard_route(route: object) -> None:
             parsed = urlparse(route.request.url)
             if (
@@ -604,7 +629,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 if len(blocked_requests) < 50:
                     blocked_requests.append(str(route.request.url))
                 logger.debug(
-                    "BTSCHOOL 请求被站点域名白名单拦截: url=%s",
+                    "%s 请求被站点域名白名单拦截: url=%s",
+                    self._SITE_NAME,
                     route.request.url,
                 )
                 route.abort()
@@ -615,7 +641,8 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
                 if len(blocked_requests) < 50:
                     blocked_requests.append(str(route.request.url))
                 logger.warning(
-                    "BTSCHOOL 请求被出站安全策略拦截: url=%s reason=%s",
+                    "%s 请求被出站安全策略拦截: url=%s reason=%s",
+                    self._SITE_NAME,
                     route.request.url,
                     error,
                 )
@@ -636,22 +663,27 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             or parsed.username is not None
             or parsed.password is not None
         ):
-            raise ValueError("BTSCHOOL 站点地址无效")
+            raise ValueError(f"{cls._SITE_NAME} 站点地址无效")
         return f"https://{cls._HOST}"
 
-    @staticmethod
-    def _ensure_same_origin(url: str, expected_origin: str) -> None:
+    @classmethod
+    def _ensure_same_origin(cls, url: str, expected_origin: str) -> None:
         parsed = urlparse(url)
         actual_origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
         if actual_origin != expected_origin:
-            raise ValueError("BTSCHOOL 登录导航离开允许域名")
+            raise ValueError(f"{cls._SITE_NAME} 登录导航离开允许域名")
 
-    @staticmethod
-    def _ensure_form_action(action: str | None, page_url: str, expected_origin: str) -> None:
+    @classmethod
+    def _ensure_form_action(
+        cls,
+        action: str | None,
+        page_url: str,
+        expected_origin: str,
+    ) -> None:
         action_url = urljoin(page_url, action or page_url)
         parsed = urlparse(action_url)
         if f"{parsed.scheme}://{parsed.netloc}".rstrip("/") != expected_origin:
-            raise ValueError("BTSCHOOL 登录表单提交地址无效")
+            raise ValueError(f"{cls._SITE_NAME} 登录表单提交地址无效")
 
     @staticmethod
     def _classify_result(final_url: str, html: str) -> str:
