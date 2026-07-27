@@ -234,7 +234,7 @@ class PterLoginAdapter(BtschoolLoginAdapter):
         context: object,
         blocked_requests: list[str],
     ) -> None:
-        allowed_hosts = {self._HOST, self._TURNSTILE_HOST}
+        allowed_hosts = {self._HOST}
 
         def guard_route(route: object) -> None:
             request_url = str(route.request.url)
@@ -243,9 +243,13 @@ class PterLoginAdapter(BtschoolLoginAdapter):
                 route.continue_()
                 return
             host = (parsed.hostname or "").lower().rstrip(".")
+            challenge_host = (
+                host == self._TURNSTILE_HOST
+                or host.endswith(f".{self._TURNSTILE_HOST}")
+            )
             if (
                 parsed.scheme != "https"
-                or host not in allowed_hosts
+                or (host not in allowed_hosts and not challenge_host)
                 or parsed.port not in {None, 443}
             ):
                 if len(blocked_requests) < 50:

@@ -328,7 +328,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         definition: SiteDefinition,
         blocked: list[str],
     ) -> None:
-        allowed_hosts = set(definition.hosts) | {self._TURNSTILE_HOST}
+        allowed_hosts = set(definition.hosts)
 
         def guard_route(route: object) -> None:
             request_url = str(route.request.url)
@@ -337,9 +337,13 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 route.continue_()
                 return
             host = (parsed.hostname or "").lower().rstrip(".")
+            challenge_host = (
+                host == self._TURNSTILE_HOST
+                or host.endswith(f".{self._TURNSTILE_HOST}")
+            )
             if (
                 parsed.scheme != "https"
-                or host not in allowed_hosts
+                or (host not in allowed_hosts and not challenge_host)
                 or parsed.port not in {None, 443}
             ):
                 if len(blocked) < 50:
