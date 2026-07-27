@@ -89,11 +89,14 @@ RUN --mount=type=cache,id=elysium-cloakbrowser-0.5.1,target=/data/.cloakbrowser-
 # Application-only changes now invalidate this small final source layer, without
 # forcing Python packages or the 200+ MB CloakBrowser binary to download again.
 COPY --chown=gateway:gateway app ./app
+COPY --chown=gateway:gateway --chmod=0755 docker-entrypoint.sh /usr/local/bin/elysium-browser-entrypoint
 
 EXPOSE 8090
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)"]
 
+# 显式启动并检查虚拟显示器，失败原因会进入容器日志。
+ENTRYPOINT ["elysium-browser-entrypoint"]
 # CloakBrowser documents asyncio as the safe loop when hosted by uvicorn.
-CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1920x1080x24", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090", "--loop", "asyncio"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090", "--loop", "asyncio"]
