@@ -138,6 +138,34 @@ def test_login_service_rejects_unregistered_site():
         raise AssertionError("未注册站点应拒绝登录")
 
 
+def test_browser_gateway_rejects_depiler_only_sites():
+    """仅支持 Depiler 的站点不得落入 Browser 登录实现。"""
+    service = SiteLoginService(Settings())
+    site_keys = (
+        "audiences",
+        "pter",
+        "zmpt",
+        "qingwa",
+        "ubits",
+        "piggo",
+        "52movie",
+        "luckpt",
+        "hitpt",
+    )
+
+    for site_key in site_keys:
+        with pytest.raises(ValueError, match="未配置自动登录适配器"):
+            service.login(
+                SiteLoginRequest(
+                    request_id=f"request-{site_key}",
+                    site_key=site_key,
+                    account_id=1,
+                    site_url="https://example.com",
+                    credentials={},
+                ),
+            )
+
+
 def test_sunnypt_adapter_rejects_non_sunnypt_target():
     """SunnyPT 凭据不得被发送到配置错误的第三方域名。"""
     adapter = SunnyPtLoginAdapter(

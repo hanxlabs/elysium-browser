@@ -3,7 +3,6 @@
 from app.config import Settings
 from app.models import SiteLoginRequest, SiteLoginResponse
 from app.security import OutboundUrlGuard
-from app.site_login.audiences import AudiencesLoginAdapter
 from app.site_login.base import SiteLoginAdapter
 from app.site_login.btschool import BtschoolLoginAdapter
 from app.site_login.crabpt import CrabptLoginAdapter
@@ -14,26 +13,18 @@ from app.site_login.discfan import DiscfanLoginAdapter
 from app.site_login.hddolby import HddolbyLoginAdapter
 from app.site_login.hdfans import HdfansLoginAdapter
 from app.site_login.hdhome import HdhomeLoginAdapter
-from app.site_login.hitpt import HitptLoginAdapter
 from app.site_login.hxpt import HxptLoginAdapter
 from app.site_login.itzmx import ItzmxLoginAdapter
-from app.site_login.luckpt import LuckptLoginAdapter
 from app.site_login.monikadesign import MonikadesignLoginAdapter
-from app.site_login.movie52 import Movie52LoginAdapter
 from app.site_login.muxuege import MuxuegeLoginAdapter
 from app.site_login.nicept import NiceptLoginAdapter
 from app.site_login.novahd import NovahdLoginAdapter
-from app.site_login.piggo import PiggoLoginAdapter
 from app.site_login.ptcafe import PtCafeLoginAdapter
-from app.site_login.pter import PterLoginAdapter
 from app.site_login.ptsbao import PtsbaoLoginAdapter
 from app.site_login.ptskit import PtskitLoginAdapter
 from app.site_login.pttime import PttimeLoginAdapter
-from app.site_login.qingwa import QingwaLoginAdapter
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.tangpt import TangptLoginAdapter
-from app.site_login.ubits import UbitsLoginAdapter
-from app.site_login.zmpt import ZmptLoginAdapter
 
 
 class SiteLoginService:
@@ -50,9 +41,6 @@ class SiteLoginService:
             BtschoolLoginAdapter(settings, OutboundUrlGuard()),
             CrabptLoginAdapter(settings, OutboundUrlGuard()),
             PtCafeLoginAdapter(settings, OutboundUrlGuard()),
-            PterLoginAdapter(settings, OutboundUrlGuard()),
-            Movie52LoginAdapter(settings, OutboundUrlGuard()),
-            AudiencesLoginAdapter(settings, OutboundUrlGuard()),
             CsptLoginAdapter(settings, OutboundUrlGuard()),
             CyanbugLoginAdapter(settings, OutboundUrlGuard()),
             DaxiangjiaoLoginAdapter(settings, OutboundUrlGuard()),
@@ -60,22 +48,16 @@ class SiteLoginService:
             HddolbyLoginAdapter(settings, OutboundUrlGuard()),
             HdfansLoginAdapter(settings, OutboundUrlGuard()),
             HdhomeLoginAdapter(settings, OutboundUrlGuard()),
-            HitptLoginAdapter(settings, OutboundUrlGuard()),
             HxptLoginAdapter(settings, OutboundUrlGuard()),
             ItzmxLoginAdapter(settings, OutboundUrlGuard()),
-            LuckptLoginAdapter(settings, OutboundUrlGuard()),
             MonikadesignLoginAdapter(settings, OutboundUrlGuard()),
             MuxuegeLoginAdapter(settings, OutboundUrlGuard()),
             NiceptLoginAdapter(settings, OutboundUrlGuard()),
             NovahdLoginAdapter(settings, OutboundUrlGuard()),
-            PiggoLoginAdapter(settings, OutboundUrlGuard()),
             PtsbaoLoginAdapter(settings, OutboundUrlGuard()),
             PtskitLoginAdapter(settings, OutboundUrlGuard()),
             PttimeLoginAdapter(settings, OutboundUrlGuard()),
-            QingwaLoginAdapter(settings, OutboundUrlGuard()),
             TangptLoginAdapter(settings, OutboundUrlGuard()),
-            UbitsLoginAdapter(settings, OutboundUrlGuard()),
-            ZmptLoginAdapter(settings, OutboundUrlGuard()),
         ]
 
     def login(self, request: SiteLoginRequest) -> SiteLoginResponse:
