@@ -10,6 +10,8 @@ from app.site_login.btschool import BtschoolLoginAdapter
 from app.site_login.crabpt import CrabptLoginAdapter
 from app.site_login.ptcafe import PtCafeLoginAdapter
 from app.site_login.pter import PterLoginAdapter
+from app.site_login.pttime import DEFINITION as PTTIME_DEFINITION
+from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.totp import generate_totp
@@ -324,4 +326,52 @@ def test_pter_adapter_rejects_non_pter_target():
                     "twoFactorSecret": "JBSWY3DPEHPK3PXP",
                 },
             ),
+        )
+
+
+class _AtomicSubmitPage:
+    """记录动态表单原子提交传入页面的参数。"""
+
+    def __init__(self, result: dict):
+        self.result = result
+        self.arguments: dict | None = None
+
+    def evaluate(self, _: str, arguments: dict) -> dict:
+        self.arguments = arguments
+        return self.result
+
+
+def test_pttime_uses_atomic_dom_submit_for_dynamic_login_form():
+    """PTTime 应在同一次 DOM 操作中重新定位、填写并提交动态表单。"""
+    page = _AtomicSubmitPage({"ok": True})
+
+    PttimeLoginAdapter._atomic_dom_submit(
+        page,
+        PTTIME_DEFINITION,
+        "https://www.pttime.org",
+        "tester",
+        "secret",
+    )
+
+    assert PTTIME_DEFINITION.atomic_dom_submit is True
+    assert page.arguments == {
+        "formSelector": 'form[action$="takelogin.php"][method="post"]',
+        "submitSelector": 'button[type="submit"]',
+        "expectedOrigin": "https://www.pttime.org",
+        "username": "tester",
+        "password": "secret",
+    }
+
+
+def test_pttime_atomic_dom_submit_rejects_changed_form_action():
+    """PTTime 动态表单提交前仍须校验提交目标域名。"""
+    page = _AtomicSubmitPage({"ok": False, "reason": "action-origin-invalid"})
+
+    with pytest.raises(ValueError, match="登录表单提交地址无效"):
+        PttimeLoginAdapter._atomic_dom_submit(
+            page,
+            PTTIME_DEFINITION,
+            "https://www.pttime.org",
+            "tester",
+            "secret",
         )

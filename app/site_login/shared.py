@@ -72,6 +72,7 @@ class SiteDefinition:
     reveal_selector: str | None = None
     unit3d: bool = False
     cloudflare_managed: bool = False
+    atomic_dom_submit: bool = False
 
 
 class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
@@ -187,18 +188,19 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                     page.locator(definition.reveal_selector).click()
 
                 form = page.locator(definition.form_selector).first
-                if form.count() != 1:
-                    self._diagnostic(
-                        request, definition, stage="login-form-missing", attempt=attempt,
-                        page=page, response=response, blocked=blocked_requests, secrets=secrets,
-                        runtime=runtime_diagnostics,
+                if not definition.atomic_dom_submit:
+                    if form.count() != 1:
+                        self._diagnostic(
+                            request, definition, stage="login-form-missing", attempt=attempt,
+                            page=page, response=response, blocked=blocked_requests, secrets=secrets,
+                            runtime=runtime_diagnostics,
+                        )
+                        return self._failure(
+                            request, started_at, f"{definition.label}登录页未找到登录表单",
+                        )
+                    self._ensure_form_action(
+                        form.get_attribute("action"), page.url, site_origin, definition,
                     )
-                    return self._failure(
-                        request, started_at, f"{definition.label}登录页未找到登录表单",
-                    )
-                self._ensure_form_action(
-                    form.get_attribute("action"), page.url, site_origin, definition,
-                )
 
                 captcha_code = ""
                 if definition.image_captcha:
@@ -233,13 +235,23 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                         )
                     secrets.append(captcha_code)
 
-                stage = "fill-login-form"
-                form.locator('input[name="username"]').fill(username)
-                form.locator('input[type="password"]').fill(password)
-                if captcha_code:
-                    form.locator(self._CAPTCHA_INPUT_SELECTOR).fill(captcha_code)
+                if definition.atomic_dom_submit:
+                    stage = "fill-and-submit-login-form"
+                    self._atomic_dom_submit(
+                        page,
+                        definition,
+                        site_origin,
+                        username,
+                        password,
+                    )
+                else:
+                    stage = "fill-login-form"
+                    form.locator('input[name="username"]').fill(username)
+                    form.locator('input[type="password"]').fill(password)
+                    if captcha_code:
+                        form.locator(self._CAPTCHA_INPUT_SELECTOR).fill(captcha_code)
 
-                if definition.turnstile:
+                if definition.turnstile and not definition.atomic_dom_submit:
                     stage = "wait-cloudflare-turnstile"
                     page.wait_for_function(
                         """selector => {
@@ -252,7 +264,11 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                     )
 
                 code = ""
-                if definition.two_factor_field and two_factor_secret:
+                if (
+                    definition.two_factor_field
+                    and two_factor_secret
+                    and not definition.atomic_dom_submit
+                ):
                     stage = "generate-two-factor-code"
                     code = generate_totp(two_factor_secret, minimum_validity_seconds=5)
                     secrets.append(code)
@@ -260,8 +276,9 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                         f'input[name="{definition.two_factor_field}"]',
                     ).fill(code)
 
-                stage = "submit-login-form"
-                form.locator(definition.submit_selector).first.click()
+                if not definition.atomic_dom_submit:
+                    stage = "submit-login-form"
+                    form.locator(definition.submit_selector).first.click()
                 stage = "inspect-login-result"
                 outcome, html = self._wait_for_page_outcome(
                     page,
@@ -476,6 +493,60 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         parsed = urlparse(action_url)
         if f"{parsed.scheme}://{parsed.netloc}".rstrip("/") != expected_origin:
             raise ValueError(f"{definition.label}登录表单提交地址无效")
+
+    @staticmethod
+    def _atomic_dom_submit(
+        page: object,
+        definition: SiteDefinition,
+        expected_origin: str,
+        username: str,
+        password: str,
+    ) -> None:
+        """在一次页面脚本中重新定位、填写并提交会被动态替换的登录表单。"""
+        result = page.evaluate(
+            """args => {
+                const form = document.querySelector(args.formSelector);
+                if (!form) return {ok: false, reason: "form-missing"};
+                const action = new URL(
+                    form.getAttribute("action") || location.href,
+                    location.href
+                );
+                if (action.origin !== args.expectedOrigin) {
+                    return {ok: false, reason: "action-origin-invalid"};
+                }
+                const username = form.querySelector('input[name="username"]');
+                const password = form.querySelector('input[type="password"]');
+                const submit = form.querySelector(args.submitSelector);
+                if (!username || !password || !submit) {
+                    return {ok: false, reason: "field-missing"};
+                }
+                const valueSetter = Object.getOwnPropertyDescriptor(
+                    HTMLInputElement.prototype,
+                    "value"
+                ).set;
+                const setValue = (field, value) => {
+                    valueSetter.call(field, value);
+                    field.dispatchEvent(new Event("input", {bubbles: true}));
+                    field.dispatchEvent(new Event("change", {bubbles: true}));
+                };
+                setValue(username, args.username);
+                setValue(password, args.password);
+                form.requestSubmit(submit);
+                return {ok: true};
+            }""",
+            {
+                "formSelector": definition.form_selector,
+                "submitSelector": definition.submit_selector,
+                "expectedOrigin": expected_origin,
+                "username": username,
+                "password": password,
+            },
+        )
+        if not isinstance(result, dict) or not result.get("ok"):
+            reason = result.get("reason", "unknown") if isinstance(result, dict) else "unknown"
+            if reason == "action-origin-invalid":
+                raise ValueError(f"{definition.label}登录表单提交地址无效")
+            raise RuntimeError(f"{definition.label}动态登录表单提交失败: {reason}")
 
     @staticmethod
     def _classify(final_url: str, html: str, definition: SiteDefinition) -> str:
