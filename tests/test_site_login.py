@@ -14,6 +14,8 @@ from app.site_login.pttime import DEFINITION as PTTIME_DEFINITION
 from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
+from app.site_login.vclib import DEFINITION as VCLIB_DEFINITION
+from app.site_login.vclib import VclibLoginAdapter
 from app.totp import generate_totp
 
 
@@ -136,6 +138,44 @@ def test_login_service_rejects_unregistered_site():
         assert "未配置自动登录适配器" in str(error)
     else:
         raise AssertionError("未注册站点应拒绝登录")
+
+
+def test_vclib_adapter_is_registered_with_expected_login_protocol():
+    """VC-Lib 应注册 OCR、2FA 和 challenge 登录所需的准确页面协议。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("vclib") for adapter in service._adapters)
+    assert VCLIB_DEFINITION.hosts == ("pt.vclib.online",)
+    assert VCLIB_DEFINITION.form_selector == "#login-form"
+    assert VCLIB_DEFINITION.submit_selector == "#submit-btn"
+    assert VCLIB_DEFINITION.image_captcha is True
+    assert VCLIB_DEFINITION.challenge is True
+    assert VCLIB_DEFINITION.two_factor_field == "two_step_code"
+
+
+def test_vclib_adapter_rejects_non_vclib_target():
+    """VC-Lib 账号、密码及2FA密钥不得发送到第三方域名。"""
+    adapter = VclibLoginAdapter(
+        Settings(),
+        _AllowAllGuard(),
+        recognizer=lambda _: "abcd",
+        context_factory=lambda **_: None,
+    )
+
+    with pytest.raises(ValueError, match="站点地址无效"):
+        adapter.login(
+            SiteLoginRequest(
+                request_id="request-vclib",
+                site_key="vclib",
+                account_id=1,
+                site_url="https://example.com",
+                credentials={
+                    "username": "tester",
+                    "password": "secret",
+                    "twoFactorSecret": "JBSWY3DPEHPK3PXP",
+                },
+            ),
+        )
 
 
 def test_browser_gateway_rejects_depiler_only_sites():

@@ -25,6 +25,7 @@ from app.site_login.ptskit import PtskitLoginAdapter
 from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.tangpt import TangptLoginAdapter
+from app.site_login.vclib import VclibLoginAdapter
 
 
 class SiteLoginService:
@@ -58,6 +59,7 @@ class SiteLoginService:
             PtskitLoginAdapter(settings, OutboundUrlGuard()),
             PttimeLoginAdapter(settings, OutboundUrlGuard()),
             TangptLoginAdapter(settings, OutboundUrlGuard()),
+            VclibLoginAdapter(settings, OutboundUrlGuard()),
         ]
 
     def login(self, request: SiteLoginRequest) -> SiteLoginResponse:
