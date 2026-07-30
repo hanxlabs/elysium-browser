@@ -73,6 +73,7 @@ class SiteDefinition:
     unit3d: bool = False
     cloudflare_managed: bool = False
     atomic_dom_submit: bool = False
+    host_suffixes: tuple[str, ...] = ()
 
 
 class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
@@ -381,8 +382,6 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         definition: SiteDefinition,
         blocked: list[str],
     ) -> None:
-        allowed_hosts = set(definition.hosts)
-
         def guard_route(route: object) -> None:
             request_url = str(route.request.url)
             parsed = urlparse(request_url)
@@ -396,7 +395,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
             )
             if (
                 parsed.scheme != "https"
-                or (host not in allowed_hosts and not challenge_host)
+                or (not self._host_allowed(host, definition) and not challenge_host)
                 or parsed.port not in {None, 443}
             ):
                 if len(blocked) < 50:
@@ -467,7 +466,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         host = (parsed.hostname or "").lower().rstrip(".")
         if (
             parsed.scheme != "https"
-            or host not in definition.hosts
+            or not ConfiguredSiteLoginAdapter._host_allowed(host, definition)
             or parsed.port not in {None, 443}
             or parsed.username is not None
             or parsed.password is not None
@@ -479,19 +478,38 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
     def _ensure_allowed_page_url(url: str, definition: SiteDefinition) -> None:
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower().rstrip(".")
-        if parsed.scheme != "https" or host not in definition.hosts:
+        if (
+            parsed.scheme != "https"
+            or parsed.port not in {None, 443}
+            or not ConfiguredSiteLoginAdapter._host_allowed(host, definition)
+        ):
             raise ValueError(f"{definition.label}登录导航离开允许域名")
+
+    @staticmethod
+    def _host_allowed(host: str, definition: SiteDefinition) -> bool:
+        normalized = host.lower().rstrip(".")
+        if normalized in definition.hosts:
+            return True
+        return any(
+            normalized == suffix or normalized.endswith(f".{suffix}")
+            for suffix in definition.host_suffixes
+        )
 
     @staticmethod
     def _ensure_form_action(
         action: str | None,
         page_url: str,
-        expected_origin: str,
+        _expected_origin: str,
         definition: SiteDefinition,
     ) -> None:
         action_url = urljoin(page_url, action or page_url)
         parsed = urlparse(action_url)
-        if f"{parsed.scheme}://{parsed.netloc}".rstrip("/") != expected_origin:
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if (
+            parsed.scheme != "https"
+            or parsed.port not in {None, 443}
+            or not ConfiguredSiteLoginAdapter._host_allowed(host, definition)
+        ):
             raise ValueError(f"{definition.label}登录表单提交地址无效")
 
     @staticmethod

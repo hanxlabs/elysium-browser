@@ -146,6 +146,7 @@ def test_vclib_adapter_is_registered_with_expected_login_protocol():
 
     assert any(adapter.supports("vclib") for adapter in service._adapters)
     assert VCLIB_DEFINITION.hosts == ("pt.vclib.online",)
+    assert VCLIB_DEFINITION.host_suffixes == ("vclib.online",)
     assert VCLIB_DEFINITION.form_selector == "#login-form"
     assert VCLIB_DEFINITION.submit_selector == "#submit-btn"
     assert VCLIB_DEFINITION.image_captcha is True
@@ -176,6 +177,35 @@ def test_vclib_adapter_rejects_non_vclib_target():
                 },
             ),
         )
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://vclib.online",
+        "https://pt.vclib.online/login.php",
+        "https://photo.vclib.online/image.png",
+    ),
+)
+def test_vclib_adapter_accepts_vclib_wildcard_hosts(url: str):
+    """VC-Lib 应允许主域及其 HTTPS 子域。"""
+    assert VclibLoginAdapter._build_origin(url, VCLIB_DEFINITION).endswith(
+        "vclib.online",
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://vclib.evil.com",
+        "https://notvclib.online",
+        "http://pt.vclib.online",
+    ),
+)
+def test_vclib_adapter_rejects_lookalike_or_insecure_hosts(url: str):
+    """VC-Lib 泛域名不得误放行相似域名或 HTTP 地址。"""
+    with pytest.raises(ValueError, match="站点地址无效"):
+        VclibLoginAdapter._build_origin(url, VCLIB_DEFINITION)
 
 
 def test_browser_gateway_rejects_depiler_only_sites():

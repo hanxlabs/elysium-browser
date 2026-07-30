@@ -8,6 +8,7 @@ DEFINITION = SiteDefinition(
     "VC-Lib",
     ("pt.vclib.online",),
     "pt.vclib.online",
+    host_suffixes=("vclib.online",),
     image_captcha=True,
     challenge=True,
     two_factor_field="two_step_code",
