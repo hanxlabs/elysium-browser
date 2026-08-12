@@ -154,6 +154,19 @@ def test_vclib_adapter_is_registered_with_expected_login_protocol():
     assert VCLIB_DEFINITION.two_factor_field == "two_step_code"
 
 
+def test_login_service_shares_one_ocr_recognizer_and_url_guard():
+    """默认适配器不得为同一进程重复加载 OCR 模型或 DNS guard。"""
+    service = SiteLoginService(Settings())
+    browser_adapters = [
+        adapter for adapter in service._adapters
+        if hasattr(adapter, "_recognizer") and hasattr(adapter, "_url_guard")
+    ]
+
+    assert browser_adapters
+    assert len({id(adapter._recognizer) for adapter in browser_adapters}) == 1
+    assert len({id(adapter._url_guard) for adapter in browser_adapters}) == 1
+
+
 def test_vclib_adapter_rejects_non_vclib_target():
     """VC-Lib 账号、密码及2FA密钥不得发送到第三方域名。"""
     adapter = VclibLoginAdapter(

@@ -1,6 +1,7 @@
 """站点登录适配器选择服务。"""
 
 from app.config import Settings
+from app.captcha.ocr import LocalCaptchaOcr
 from app.models import SiteLoginRequest, SiteLoginResponse
 from app.security import OutboundUrlGuard
 from app.site_login.base import SiteLoginAdapter
@@ -37,29 +38,39 @@ class SiteLoginService:
         adapters: list[SiteLoginAdapter] | None = None,
     ):
         """注册当前网关已支持的站点登录适配器。"""
-        self._adapters = adapters if adapters is not None else [
-            SunnyPtLoginAdapter(settings, OutboundUrlGuard()),
-            BtschoolLoginAdapter(settings, OutboundUrlGuard()),
-            CrabptLoginAdapter(settings, OutboundUrlGuard()),
-            PtCafeLoginAdapter(settings, OutboundUrlGuard()),
-            CsptLoginAdapter(settings, OutboundUrlGuard()),
-            CyanbugLoginAdapter(settings, OutboundUrlGuard()),
-            DaxiangjiaoLoginAdapter(settings, OutboundUrlGuard()),
-            DiscfanLoginAdapter(settings, OutboundUrlGuard()),
-            HddolbyLoginAdapter(settings, OutboundUrlGuard()),
-            HdfansLoginAdapter(settings, OutboundUrlGuard()),
-            HdhomeLoginAdapter(settings, OutboundUrlGuard()),
-            HxptLoginAdapter(settings, OutboundUrlGuard()),
-            ItzmxLoginAdapter(settings, OutboundUrlGuard()),
-            MonikadesignLoginAdapter(settings, OutboundUrlGuard()),
-            MuxuegeLoginAdapter(settings, OutboundUrlGuard()),
-            NiceptLoginAdapter(settings, OutboundUrlGuard()),
-            NovahdLoginAdapter(settings, OutboundUrlGuard()),
-            PtsbaoLoginAdapter(settings, OutboundUrlGuard()),
-            PtskitLoginAdapter(settings, OutboundUrlGuard()),
-            PttimeLoginAdapter(settings, OutboundUrlGuard()),
-            TangptLoginAdapter(settings, OutboundUrlGuard()),
-            VclibLoginAdapter(settings, OutboundUrlGuard()),
+        if adapters is not None:
+            self._adapters = adapters
+            return
+
+        # URL validation is stateless and its DNS cache is process-wide. More
+        # importantly, an ONNX session is expensive (the bundled model is about
+        # 28 MB), so every captcha-capable adapter must share one thread-safe OCR
+        # instance instead of lazily loading its own copy of the model.
+        url_guard = OutboundUrlGuard()
+        captcha_recognizer = LocalCaptchaOcr()
+        self._adapters = [
+            SunnyPtLoginAdapter(settings, url_guard),
+            BtschoolLoginAdapter(settings, url_guard, captcha_recognizer),
+            CrabptLoginAdapter(settings, url_guard, captcha_recognizer),
+            PtCafeLoginAdapter(settings, url_guard, captcha_recognizer),
+            CsptLoginAdapter(settings, url_guard, captcha_recognizer),
+            CyanbugLoginAdapter(settings, url_guard, captcha_recognizer),
+            DaxiangjiaoLoginAdapter(settings, url_guard, captcha_recognizer),
+            DiscfanLoginAdapter(settings, url_guard, captcha_recognizer),
+            HddolbyLoginAdapter(settings, url_guard, captcha_recognizer),
+            HdfansLoginAdapter(settings, url_guard, captcha_recognizer),
+            HdhomeLoginAdapter(settings, url_guard, captcha_recognizer),
+            HxptLoginAdapter(settings, url_guard, captcha_recognizer),
+            ItzmxLoginAdapter(settings, url_guard, captcha_recognizer),
+            MonikadesignLoginAdapter(settings, url_guard, captcha_recognizer),
+            MuxuegeLoginAdapter(settings, url_guard, captcha_recognizer),
+            NiceptLoginAdapter(settings, url_guard, captcha_recognizer),
+            NovahdLoginAdapter(settings, url_guard, captcha_recognizer),
+            PtsbaoLoginAdapter(settings, url_guard, captcha_recognizer),
+            PtskitLoginAdapter(settings, url_guard, captcha_recognizer),
+            PttimeLoginAdapter(settings, url_guard, captcha_recognizer),
+            TangptLoginAdapter(settings, url_guard, captcha_recognizer),
+            VclibLoginAdapter(settings, url_guard, captcha_recognizer),
         ]
 
     def login(self, request: SiteLoginRequest) -> SiteLoginResponse:

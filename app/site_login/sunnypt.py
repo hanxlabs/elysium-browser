@@ -5,6 +5,7 @@ import time
 from typing import Callable
 from urllib.parse import urlparse
 
+from app.browser_runtime import launch_isolated_context
 from app.config import Settings
 from app.models import SiteLoginCredential, SiteLoginRequest, SiteLoginResponse
 from app.security import OutboundUrlGuard
@@ -124,19 +125,7 @@ class SunnyPtLoginAdapter(SiteLoginAdapter):
 
     def _launch_context(self) -> object:
         """创建仅供本次登录使用的隔离 CloakBrowser 上下文。"""
-        if self._context_factory is not None:
-            return self._context_factory(
-                headless=self._settings.headless,
-                humanize=self._settings.humanize,
-                human_preset=self._settings.human_preset,
-            )
-        from cloakbrowser import launch_context
-
-        return launch_context(
-            headless=self._settings.headless,
-            humanize=self._settings.humanize,
-            human_preset=self._settings.human_preset,
-        )
+        return launch_isolated_context(self._settings, self._context_factory)
 
     def _install_request_guard(self, context: object) -> None:
         """保护登录页、接口和子资源均不能访问内网地址。"""
