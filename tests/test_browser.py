@@ -1,6 +1,11 @@
 """浏览器结果处理测试。"""
 
-from app.browser_shared import filter_same_site_cookies, is_challenge_page, truncate_html_bytes
+from app.browser_shared import (
+    cookie_header_for_host,
+    filter_same_site_cookies,
+    is_challenge_page,
+    truncate_html_bytes,
+)
 
 
 def test_truncates_html_by_utf8_bytes():
@@ -29,3 +34,16 @@ def test_detects_challenge_marker():
     """验证页只能被标记，不应触发额外行为。"""
     assert is_challenge_page("<div>安全验证</div>") is True
     assert is_challenge_page("<html>ordinary content</html>") is False
+
+
+def test_cookie_header_keeps_only_target_domain():
+    """登录响应 Cookie 头不得混入第三方上下文 Cookie。"""
+    header = cookie_header_for_host(
+        [
+            {"name": "session", "value": "abc", "domain": ".example.org"},
+            {"name": "tracking", "value": "ignored", "domain": "example.net"},
+        ],
+        "pt.example.org",
+    )
+
+    assert header == "session=abc"

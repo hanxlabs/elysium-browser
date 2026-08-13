@@ -95,12 +95,43 @@ def is_challenge_page(html: str) -> bool:
 
 def cookie_header_from_context(context: object, site_origin: str) -> str:
     """从浏览器上下文中提取站点 Cookie 并拼接为 HTTP Cookie 头。"""
-    cookies = context.cookies(site_origin)
-    return "; ".join(
-        f"{cookie.get('name', '')}={cookie.get('value', '')}"
-        for cookie in cookies
-        if cookie.get("name")
-    )
+    host = _normalize_host(urlparse(site_origin).hostname)
+    return cookie_header_for_host(context.cookies(site_origin), host)
+
+
+def cookie_header_for_host(cookies: list[dict], host: str) -> str:
+    """只拼接目标主机可见的 Cookie，保持登录适配器原有筛选语义。"""
+    normalized_host = _normalize_host(host)
+    values: list[str] = []
+    for cookie in cookies:
+        name = str(cookie.get("name") or "").strip()
+        value = str(cookie.get("value") or "")
+        domain = _normalize_host(str(cookie.get("domain") or "").lstrip("."))
+        if not name or not domain or not (
+            normalized_host == domain or normalized_host.endswith(f".{domain}")
+        ):
+            continue
+        parsed = SimpleCookie()
+        parsed[name] = value
+        values.append(f"{name}={parsed[name].value}")
+    return "; ".join(values)
+
+
+def close_browser_context(
+    context: object,
+    log: logging.Logger,
+    label: str,
+    request_id: str,
+    *,
+    suppress_errors: bool = True,
+) -> None:
+    """统一关闭请求级上下文；调用方可保留原先的异常传播方式。"""
+    try:
+        context.close()
+    except Exception:
+        log.exception("%s Browser上下文关闭失败: request_id=%s", label, request_id)
+        if not suppress_errors:
+            raise
 
 
 def sanitize_diagnostic_json(payload: object) -> str:

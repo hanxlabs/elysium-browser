@@ -9,6 +9,11 @@ import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
+from app.browser_shared import (
+    close_browser_context,
+    cookie_header_for_host,
+    sanitize_diagnostic_json,
+)
 from app.models import SiteLoginCredential, SiteLoginRequest, SiteLoginResponse
 from app.site_login.btschool import BtschoolLoginAdapter, CaptchaRecognizer, _CAPTCHA_PATTERN
 from app.totp import generate_totp
@@ -332,13 +337,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
             secrets.clear()
             two_factor_secret = ""
             if context is not None:
-                try:
-                    context.close()
-                except Exception:
-                    logger.exception(
-                        "%s Browser上下文关闭失败: request_id=%s",
-                        definition.label, request.request_id,
-                    )
+                close_browser_context(context, logger, definition.label, request.request_id)
 
     def _success(
         self,
@@ -350,7 +349,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         definition: SiteDefinition,
     ) -> SiteLoginResponse:
         host = (urlparse(page.url).hostname or definition.default_host).lower().rstrip(".")
-        cookie = self._cookie_header(context.cookies(site_origin), host)
+        cookie = cookie_header_for_host(context.cookies(site_origin), host)
         if not cookie:
             return self._failure(
                 request, started_at, f"{definition.label}登录成功但未返回 Cookie",
@@ -764,7 +763,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
         logger.error(
             "%s Browser页面诊断: %s",
             definition.label,
-            json.dumps(diagnostic, ensure_ascii=False, default=str),
+            sanitize_diagnostic_json(diagnostic),
         )
         logger.error(
             "%s Browser脱敏页面HTML: request_id=%s stage=%s\n%s",

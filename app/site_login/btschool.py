@@ -6,11 +6,15 @@ import json
 import logging
 import re
 import time
-from http.cookies import SimpleCookie
 from typing import Callable, Protocol
 from urllib.parse import urljoin, urlparse
 
 from app.browser_runtime import launch_isolated_context
+from app.browser_shared import (
+    close_browser_context,
+    cookie_header_from_context,
+    sanitize_diagnostic_json,
+)
 from app.captcha import LocalCaptchaOcr
 from app.config import Settings
 from app.models import SiteLoginCredential, SiteLoginRequest, SiteLoginResponse
@@ -299,14 +303,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
             )
         finally:
             if context is not None:
-                try:
-                    context.close()
-                except Exception:
-                    logger.exception(
-                        "%s Browser上下文关闭失败: request_id=%s",
-                        self._SITE_NAME,
-                        request.request_id,
-                    )
+                close_browser_context(context, logger, self._SITE_NAME, request.request_id)
 
     @staticmethod
     def _read_stable_page_content(page: object, timeout_seconds: int) -> str:
@@ -340,7 +337,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
     ) -> SiteLoginResponse:
         user_agent = str(page.evaluate("() => navigator.userAgent") or "").strip()
         language = str(page.evaluate("() => navigator.language") or "zh-CN").strip()
-        cookie = self._cookie_header(context.cookies(site_origin), self._HOST)
+        cookie = cookie_header_from_context(context, site_origin)
         if not cookie:
             self._log_page_diagnostic(
                 request_id=request.request_id,
@@ -551,7 +548,7 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         logger.error(
             "%s Browser页面诊断: %s",
             self._SITE_NAME,
-            json.dumps(diagnostic, ensure_ascii=False, default=str),
+            sanitize_diagnostic_json(diagnostic),
         )
         logger.error(
             "%s Browser脱敏页面HTML: request_id=%s stage=%s\n%s",
@@ -694,20 +691,6 @@ class BtschoolLoginAdapter(SiteLoginAdapter):
         if (path in {"", "/index.php"} or index_title) and authenticated_marker:
             return "success"
         return "unknown"
-
-    @staticmethod
-    def _cookie_header(cookies: list[dict], host: str) -> str:
-        values: list[str] = []
-        for cookie in cookies:
-            name = str(cookie.get("name") or "").strip()
-            value = str(cookie.get("value") or "")
-            domain = str(cookie.get("domain") or "").lower().lstrip(".").rstrip(".")
-            if not name or not domain or not (host == domain or host.endswith(f".{domain}")):
-                continue
-            parsed = SimpleCookie()
-            parsed[name] = value
-            values.append(f"{name}={parsed[name].value}")
-        return "; ".join(values)
 
     @staticmethod
     def _duration_ms(started_at: float) -> int:

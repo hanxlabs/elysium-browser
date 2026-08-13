@@ -1,10 +1,12 @@
 """CloakBrowser 页面抓取实现。"""
 
+import logging
 import time
 from dataclasses import dataclass
 
 from app.browser_runtime import launch_isolated_context
 from app.browser_shared import (
+    close_browser_context,
     filter_same_site_cookies,
     inject_cookie_from_header,
     install_outbound_request_guard,
@@ -14,6 +16,8 @@ from app.browser_shared import (
 from app.config import Settings
 from app.models import BrowserCookie, FetchPageRequest, FetchPageResponse
 from app.security import OutboundUrlGuard
+
+logger = logging.getLogger("elysium.browser_gateway.fetcher")
 
 
 @dataclass(frozen=True)
@@ -76,4 +80,10 @@ class CloakBrowserFetcher:
                 cookies=filter_same_site_cookies(context.cookies(), str(request.url)),
             )
         finally:
-            context.close()
+            close_browser_context(
+                context,
+                logger,
+                "通用抓取",
+                request.request_id,
+                suppress_errors=False,
+            )

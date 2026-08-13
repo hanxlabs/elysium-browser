@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import time
 from urllib.parse import urlparse
 
+from app.browser_shared import (
+    close_browser_context,
+    cookie_header_from_context,
+    sanitize_diagnostic_json,
+)
 from app.models import SiteLoginCredential, SiteLoginRequest, SiteLoginResponse
 from app.site_login.btschool import BtschoolLoginAdapter
 from app.totp import generate_totp
@@ -191,13 +195,7 @@ class PterLoginAdapter(BtschoolLoginAdapter):
             code = ""
             two_factor_secret = ""
             if context is not None:
-                try:
-                    context.close()
-                except Exception:
-                    logger.exception(
-                        "猫站Browser上下文关闭失败: request_id=%s",
-                        request.request_id,
-                    )
+                close_browser_context(context, logger, "猫站", request.request_id)
 
     def _success_response(
         self,
@@ -207,7 +205,7 @@ class PterLoginAdapter(BtschoolLoginAdapter):
         context: object,
         site_origin: str,
     ) -> SiteLoginResponse:
-        cookie = self._cookie_header(context.cookies(site_origin), self._HOST)
+        cookie = cookie_header_from_context(context, site_origin)
         if not cookie:
             return self._failure(request, started_at, "猫站登录成功但未返回 Cookie")
         user_agent = str(page.evaluate("() => navigator.userAgent") or "").strip()
@@ -323,7 +321,7 @@ class PterLoginAdapter(BtschoolLoginAdapter):
                 error_text = error_text.replace(secret, "[REDACTED]")
         logger.error(
             "猫站Browser页面诊断: %s",
-            json.dumps(
+            sanitize_diagnostic_json(
                 {
                     "requestId": request_id,
                     "stage": stage,
@@ -333,7 +331,6 @@ class PterLoginAdapter(BtschoolLoginAdapter):
                     "blockedRequests": blocked_requests[-50:],
                     "errorType": type(error).__name__ if error else "",
                     "error": error_text,
-                },
-                ensure_ascii=False,
+                }
             ),
         )

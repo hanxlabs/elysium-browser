@@ -1,11 +1,13 @@
 """SunnyPT 登录适配器。"""
 
 import json
+import logging
 import time
 from typing import Callable
 from urllib.parse import urlparse
 
 from app.browser_runtime import launch_isolated_context
+from app.browser_shared import close_browser_context, install_outbound_request_guard
 from app.config import Settings
 from app.models import SiteLoginCredential, SiteLoginRequest, SiteLoginResponse
 from app.security import OutboundUrlGuard
@@ -45,6 +47,8 @@ async () => {
   return { status: response.status, body: await response.text() };
 }
 """
+
+logger = logging.getLogger("elysium.browser_gateway.site_login.sunnypt")
 
 
 class SunnyPtLoginAdapter(SiteLoginAdapter):
@@ -121,7 +125,13 @@ class SunnyPtLoginAdapter(SiteLoginAdapter):
         except Exception:
             return self._failure(request, started_at, "SunnyPT 自动登录请求异常")
         finally:
-            context.close()
+            close_browser_context(
+                context,
+                logger,
+                "SunnyPT",
+                request.request_id,
+                suppress_errors=False,
+            )
 
     def _launch_context(self) -> object:
         """创建仅供本次登录使用的隔离 CloakBrowser 上下文。"""
@@ -129,15 +139,7 @@ class SunnyPtLoginAdapter(SiteLoginAdapter):
 
     def _install_request_guard(self, context: object) -> None:
         """保护登录页、接口和子资源均不能访问内网地址。"""
-        def guard_route(route: object) -> None:
-            try:
-                self._url_guard.ensure_allowed(route.request.url)
-            except ValueError:
-                route.abort()
-                return
-            route.continue_()
-
-        context.route("**/*", guard_route)
+        install_outbound_request_guard(context, self._url_guard)
 
     @staticmethod
     def _build_site_origin(site_url: str) -> str:
