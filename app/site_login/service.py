@@ -16,6 +16,7 @@ from app.site_login.hdfans import HdfansLoginAdapter
 from app.site_login.hdhome import HdhomeLoginAdapter
 from app.site_login.hxpt import HxptLoginAdapter
 from app.site_login.itzmx import ItzmxLoginAdapter
+from app.site_login.kufei import KufeiLoginAdapter
 from app.site_login.monikadesign import MonikadesignLoginAdapter
 from app.site_login.muxuege import MuxuegeLoginAdapter
 from app.site_login.nicept import NiceptLoginAdapter
@@ -62,6 +63,7 @@ class SiteLoginService:
             HdhomeLoginAdapter(settings, url_guard, captcha_recognizer),
             HxptLoginAdapter(settings, url_guard, captcha_recognizer),
             ItzmxLoginAdapter(settings, url_guard, captcha_recognizer),
+            KufeiLoginAdapter(settings, url_guard, captcha_recognizer),
             MonikadesignLoginAdapter(settings, url_guard, captcha_recognizer),
             MuxuegeLoginAdapter(settings, url_guard, captcha_recognizer),
             NiceptLoginAdapter(settings, url_guard, captcha_recognizer),

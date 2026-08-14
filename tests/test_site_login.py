@@ -12,6 +12,7 @@ from app.site_login.ptcafe import PtCafeLoginAdapter
 from app.site_login.pter import PterLoginAdapter
 from app.site_login.pttime import DEFINITION as PTTIME_DEFINITION
 from app.site_login.pttime import PttimeLoginAdapter
+from app.site_login.kufei import DEFINITION as KUFEI_DEFINITION
 from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.vclib import DEFINITION as VCLIB_DEFINITION
@@ -165,6 +166,18 @@ def test_login_service_shares_one_ocr_recognizer_and_url_guard():
     assert browser_adapters
     assert len({id(adapter._recognizer) for adapter in browser_adapters}) == 1
     assert len({id(adapter._url_guard) for adapter in browser_adapters}) == 1
+
+
+def test_kufei_adapter_is_registered_with_expected_login_protocol():
+    """库非应注册 Turnstile、可选 2FA 和真实登录表单协议。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("kufei") for adapter in service._adapters)
+    assert KUFEI_DEFINITION.hosts == ("kufei.org",)
+    assert KUFEI_DEFINITION.form_selector == "#login-form"
+    assert KUFEI_DEFINITION.submit_selector == "#submit-btn"
+    assert KUFEI_DEFINITION.turnstile is True
+    assert KUFEI_DEFINITION.two_factor_field == "two_step_code"
 
 
 def test_vclib_adapter_rejects_non_vclib_target():
