@@ -89,7 +89,17 @@ def truncate_html_bytes(html: str, max_bytes: int) -> tuple[str, bool]:
 def is_challenge_page(html: str) -> bool:
     """识别常见验证页面文本，仅用于上报而不执行任何验证操作。"""
     normalized = html.lower()
-    markers = ("cf-chl-", "captcha", "verify you are human", "人机验证", "安全验证")
+    markers = (
+        "cf-chl-",
+        "challenge-platform",
+        "just a moment",
+        "checking your browser",
+        "cloudflare ray id",
+        "captcha",
+        "verify you are human",
+        "人机验证",
+        "安全验证",
+    )
     return any(marker in normalized for marker in markers)
 
 

@@ -1,5 +1,9 @@
 """浏览器结果处理测试。"""
 
+import pytest
+
+from app.models import FetchPageRequest
+
 from app.browser_shared import (
     cookie_header_for_host,
     filter_same_site_cookies,
@@ -47,3 +51,24 @@ def test_cookie_header_keeps_only_target_domain():
     )
 
     assert header == "session=abc"
+
+
+def test_fetch_request_bounds_post_load_settle_time():
+    """中间验证页等待时间必须受 API 模型限制。"""
+    request = FetchPageRequest(
+        request_id="sign-1",
+        site_key="audiences",
+        account_id=1,
+        url="https://audiences.me/attendance.php",
+        settle_seconds=15,
+    )
+    assert request.settle_seconds == 15
+
+    with pytest.raises(ValueError):
+        FetchPageRequest(
+            request_id="sign-2",
+            site_key="audiences",
+            account_id=1,
+            url="https://audiences.me/attendance.php",
+            settle_seconds=31,
+        )

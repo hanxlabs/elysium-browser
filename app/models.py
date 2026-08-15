@@ -15,6 +15,7 @@ class FetchPageRequest(BaseModel):
     cookie: str | None = Field(default=None, max_length=65536)
     headers: dict[str, str] = Field(default_factory=dict, max_length=16)
     timeout_seconds: int | None = Field(default=None, ge=1, le=120)
+    settle_seconds: int = Field(default=0, ge=0, le=30)
     wait_until: Literal["domcontentloaded", "load", "networkidle"] = "domcontentloaded"
 
     @field_validator("headers")

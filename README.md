@@ -62,9 +62,12 @@ Content-Type: application/json
     "Referer": "https://pt.example.org/"
   },
   "timeoutSeconds": 45,
+  "settle_seconds": 0,
   "waitUntil": "domcontentloaded"
 }
 ```
+
+`settle_seconds` 默认为 `0`；仅在页面导航完成后仍需等待 CF 等中间页跳转时设置，最长 30 秒。
 
 响应包含渲染 HTML、最终 URL、导航状态、同站 Cookie 列表和 `challengeDetected` 标识。此标识只用于 Elysium 的失败分类；网关不会尝试处理验证页面。
 

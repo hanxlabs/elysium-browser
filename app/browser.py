@@ -72,6 +72,10 @@ class CloakBrowserFetcher:
             page = context.new_page()
             page.set_default_timeout(timeout_seconds * 1000)
             response = page.goto(str(request.url), wait_until=request.wait_until, timeout=timeout_seconds * 1000)
+            if request.settle_seconds:
+                # Challenge pages may finish their initial navigation before replacing
+                # themselves with the requested page. Keep this wait bounded and opt-in.
+                page.wait_for_timeout(request.settle_seconds * 1000)
             return _FetchResult(
                 status=response.status if response else None,
                 final_url=page.url,
