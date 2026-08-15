@@ -13,6 +13,8 @@ from app.models import (
     ErrorResponse,
     FetchPageRequest,
     FetchPageResponse,
+    FetchResourceRequest,
+    FetchResourceResponse,
     SiteLoginRequest,
     SiteLoginResponse,
 )
@@ -39,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Elysium Browser Gateway",
-    version="1.1.0",
+    version="1.2.0",
     docs_url=None,
     redoc_url=None,
     lifespan=lifespan,
@@ -82,6 +84,31 @@ async def fetch_page(
         except Exception as error:
             logger.exception("浏览器页面抓取失败: request_id=%s site_key=%s", payload.request_id, payload.site_key)
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="浏览器页面抓取失败") from error
+
+
+@app.post(
+    "/internal/v1/resources/fetch",
+    response_model=FetchResourceResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+)
+async def fetch_resource(
+    payload: FetchResourceRequest,
+    request: Request,
+    _: None = Depends(require_gateway_token),
+) -> FetchResourceResponse:
+    """为站点数据刷新执行受限的 Browser 页面或 API 请求。"""
+    async with request.app.state.semaphore:
+        try:
+            return await asyncio.to_thread(request.app.state.fetcher.fetch_resource, payload)
+        except ValueError:
+            raise
+        except Exception as error:
+            logger.exception(
+                "Browser站点数据请求失败: request_id=%s site_key=%s",
+                payload.request_id,
+                payload.site_key,
+            )
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Browser站点数据请求失败") from error
 
 
 @app.post(

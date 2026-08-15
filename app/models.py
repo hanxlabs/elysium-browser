@@ -61,6 +61,51 @@ class FetchPageResponse(BaseModel):
     duration_ms: int
 
 
+class FetchResourceRequest(BaseModel):
+    """站点数据刷新使用的受限 Browser 请求。"""
+
+    request_id: str = Field(min_length=1, max_length=128)
+    site_key: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    account_id: int = Field(ge=0)
+    url: HttpUrl
+    method: Literal["GET", "POST"] = "GET"
+    cookie: str | None = Field(default=None, max_length=65536)
+    headers: dict[str, str] = Field(default_factory=dict, max_length=24)
+    body: str | None = Field(default=None, max_length=1024 * 1024)
+    render_page: bool = False
+    timeout_seconds: int | None = Field(default=None, ge=1, le=120)
+    settle_seconds: int = Field(default=0, ge=0, le=30)
+    wait_until: Literal["domcontentloaded", "load", "networkidle"] = "domcontentloaded"
+
+    @field_validator("headers")
+    @classmethod
+    def validate_resource_headers(cls, headers: dict[str, str]) -> dict[str, str]:
+        """拒绝可改变连接边界或绕过独立 Cookie 字段的请求头。"""
+        blocked_headers = {"cookie", "host", "proxy-authorization", "connection", "content-length"}
+        normalized: dict[str, str] = {}
+        for name, value in headers.items():
+            normalized_name = name.strip()
+            if not normalized_name or normalized_name.lower() in blocked_headers:
+                raise ValueError(f"不允许设置请求头: {name}")
+            if len(normalized_name) > 128 or len(value) > 8192:
+                raise ValueError("请求头长度超限")
+            normalized[normalized_name] = value
+        return normalized
+
+
+class FetchResourceResponse(BaseModel):
+    """Browser 页面或关联请求上下文返回的站点响应。"""
+
+    request_id: str
+    status: int | None
+    final_url: str
+    body: str
+    body_truncated: bool
+    cookies: list[BrowserCookie]
+    challenge_detected: bool
+    duration_ms: int
+
+
 class ErrorResponse(BaseModel):
     """统一错误响应。"""
 

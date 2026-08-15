@@ -2,7 +2,7 @@ services:
   elysium-browser-gateway:
     build:
       context: .
-    image: elysium-browser-gateway:1.1.0
+    image: elysium-browser-gateway:1.2.0
     restart: unless-stopped
     env_file:
       - .env
