@@ -13,6 +13,8 @@ from app.site_login.pter import PterLoginAdapter
 from app.site_login.pttime import DEFINITION as PTTIME_DEFINITION
 from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.kufei import DEFINITION as KUFEI_DEFINITION
+from app.site_login.hhanclub import DEFINITION as HHANCLUB_DEFINITION
+from app.site_login.hhanclub import HhanclubLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.vclib import DEFINITION as VCLIB_DEFINITION
@@ -178,6 +180,30 @@ def test_kufei_adapter_is_registered_with_expected_login_protocol():
     assert KUFEI_DEFINITION.submit_selector == "#submit-btn"
     assert KUFEI_DEFINITION.turnstile is True
     assert KUFEI_DEFINITION.two_factor_field == "two_step_code"
+
+
+def test_hhanclub_adapter_is_registered_with_expected_login_protocol():
+    """HHanClub 应启用图片验证码、可选 2FA 与真实提交按钮。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("hhanclub") for adapter in service._adapters)
+    assert HHANCLUB_DEFINITION.hosts == ("hhanclub.net",)
+    assert HHANCLUB_DEFINITION.host_suffixes == ("hhanclub.net",)
+    assert HHANCLUB_DEFINITION.image_captcha is True
+    assert HHANCLUB_DEFINITION.two_factor_field == "two_step_code"
+    assert HHANCLUB_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert HHANCLUB_DEFINITION.submit_selector == 'input[type="submit"]'
+
+
+@pytest.mark.parametrize("url", ("https://hhanclub.net", "https://www.hhanclub.net/login.php"))
+def test_hhanclub_adapter_accepts_site_hosts(url: str):
+    assert HhanclubLoginAdapter._build_origin(url, HHANCLUB_DEFINITION).endswith("hhanclub.net")
+
+
+@pytest.mark.parametrize("url", ("https://hhanclub.net.evil.example", "http://hhanclub.net"))
+def test_hhanclub_adapter_rejects_lookalike_or_insecure_hosts(url: str):
+    with pytest.raises(ValueError, match="站点地址无效"):
+        HhanclubLoginAdapter._build_origin(url, HHANCLUB_DEFINITION)
 
 
 def test_vclib_adapter_rejects_non_vclib_target():
