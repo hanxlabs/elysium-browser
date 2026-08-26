@@ -7,6 +7,8 @@ import pytest
 from app.config import Settings
 from app.models import SiteLoginRequest
 from app.site_login.btschool import BtschoolLoginAdapter
+from app.site_login.chdbits import DEFINITION as CHDBITS_DEFINITION
+from app.site_login.chdbits import ChdbitsLoginAdapter
 from app.site_login.crabpt import CrabptLoginAdapter
 from app.site_login.ptcafe import PtCafeLoginAdapter
 from app.site_login.pter import PterLoginAdapter
@@ -193,6 +195,41 @@ def test_hhanclub_adapter_is_registered_with_expected_login_protocol():
     assert HHANCLUB_DEFINITION.two_factor_field == "two_step_code"
     assert HHANCLUB_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
     assert HHANCLUB_DEFINITION.submit_selector == 'input[type="submit"]'
+
+
+def test_chdbits_adapter_is_registered_with_expected_login_protocol():
+    """CHDBits 应使用图片验证码和 NexusPHP 登录表单。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("chdbits") for adapter in service._adapters)
+    assert CHDBITS_DEFINITION.hosts == ("ptchdbits.co", "chdbits.co")
+    assert CHDBITS_DEFINITION.host_suffixes == ("ptchdbits.co", "chdbits.co")
+    assert CHDBITS_DEFINITION.image_captcha is True
+    assert CHDBITS_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert CHDBITS_DEFINITION.submit_selector == 'input[type="submit"]'
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://ptchdbits.co",
+        "https://www.ptchdbits.co/login.php",
+        "https://chdbits.co/login.php",
+    ),
+)
+def test_chdbits_adapter_accepts_current_and_legacy_hosts(url: str):
+    assert ChdbitsLoginAdapter._build_origin(url, CHDBITS_DEFINITION).endswith(
+        ("ptchdbits.co", "chdbits.co"),
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    ("https://ptchdbits.co.evil.example", "https://notchdbits.co", "http://ptchdbits.co"),
+)
+def test_chdbits_adapter_rejects_lookalike_or_insecure_hosts(url: str):
+    with pytest.raises(ValueError, match="站点地址无效"):
+        ChdbitsLoginAdapter._build_origin(url, CHDBITS_DEFINITION)
 
 
 @pytest.mark.parametrize("url", ("https://hhanclub.net", "https://www.hhanclub.net/login.php"))
