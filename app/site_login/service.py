@@ -12,6 +12,7 @@ from app.site_login.cspt import CsptLoginAdapter
 from app.site_login.cyanbug import CyanbugLoginAdapter
 from app.site_login.daxiangjiao import DaxiangjiaoLoginAdapter
 from app.site_login.discfan import DiscfanLoginAdapter
+from app.site_login.dstudio import DstudioLoginAdapter
 from app.site_login.hddolby import HddolbyLoginAdapter
 from app.site_login.hdfans import HdfansLoginAdapter
 from app.site_login.hdhome import HdhomeLoginAdapter
@@ -61,6 +62,7 @@ class SiteLoginService:
             CyanbugLoginAdapter(settings, url_guard, captcha_recognizer),
             DaxiangjiaoLoginAdapter(settings, url_guard, captcha_recognizer),
             DiscfanLoginAdapter(settings, url_guard, captcha_recognizer),
+            DstudioLoginAdapter(settings, url_guard, captcha_recognizer),
             HddolbyLoginAdapter(settings, url_guard, captcha_recognizer),
             HdfansLoginAdapter(settings, url_guard, captcha_recognizer),
             HdhomeLoginAdapter(settings, url_guard, captcha_recognizer),

@@ -325,6 +325,18 @@ def test_browser_gateway_rejects_depiler_only_sites():
             )
 
 
+def test_dstudio_adapter_accepts_its_primary_host():
+    """Depth Studio 的凭据只能提交到 dstudio.me。"""
+    from app.site_login.dstudio import DEFINITION, DstudioLoginAdapter
+
+    assert DstudioLoginAdapter._build_origin(
+        "https://dstudio.me/login.php", DEFINITION,
+    ) == "https://dstudio.me"
+
+    with pytest.raises(ValueError, match="站点地址无效"):
+        DstudioLoginAdapter._build_origin("https://dstudio.me.evil.example", DEFINITION)
+
+
 def test_sunnypt_adapter_rejects_non_sunnypt_target():
     """SunnyPT 凭据不得被发送到配置错误的第三方域名。"""
     adapter = SunnyPtLoginAdapter(
