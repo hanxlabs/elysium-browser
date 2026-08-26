@@ -21,6 +21,7 @@ from app.site_login.service import SiteLoginService
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.vclib import DEFINITION as VCLIB_DEFINITION
 from app.site_login.vclib import VclibLoginAdapter
+from app.site_login.xdy import DEFINITION as XDY_DEFINITION
 from app.totp import generate_totp
 
 
@@ -157,6 +158,19 @@ def test_vclib_adapter_is_registered_with_expected_login_protocol():
     assert VCLIB_DEFINITION.image_captcha is True
     assert VCLIB_DEFINITION.challenge is True
     assert VCLIB_DEFINITION.two_factor_field == "two_step_code"
+
+
+def test_xdy_adapter_is_registered_with_expected_login_protocol():
+    """修道院应使用图片验证码、可选 2FA 与脚本提交按钮。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("xdy") for adapter in service._adapters)
+    assert XDY_DEFINITION.hosts == ("xdypt.vip",)
+    assert XDY_DEFINITION.image_captcha is True
+    assert XDY_DEFINITION.challenge is True
+    assert XDY_DEFINITION.two_factor_field == "two_step_code"
+    assert XDY_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert XDY_DEFINITION.submit_selector == "#submit-btn"
 
 
 def test_login_service_shares_one_ocr_recognizer_and_url_guard():
