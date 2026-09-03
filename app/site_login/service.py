@@ -5,6 +5,7 @@ from app.captcha.ocr import LocalCaptchaOcr
 from app.models import SiteLoginRequest, SiteLoginResponse
 from app.security import OutboundUrlGuard
 from app.site_login.base import SiteLoginAdapter
+from app.site_login.agsvpt import AgsvptLoginAdapter
 from app.site_login.btschool import BtschoolLoginAdapter
 from app.site_login.chdbits import ChdbitsLoginAdapter
 from app.site_login.crabpt import CrabptLoginAdapter
@@ -55,6 +56,7 @@ class SiteLoginService:
         captcha_recognizer = LocalCaptchaOcr()
         self._adapters = [
             SunnyPtLoginAdapter(settings, url_guard),
+            AgsvptLoginAdapter(settings, url_guard, captcha_recognizer),
             BtschoolLoginAdapter(settings, url_guard, captcha_recognizer),
             ChdbitsLoginAdapter(settings, url_guard, captcha_recognizer),
             CrabptLoginAdapter(settings, url_guard, captcha_recognizer),

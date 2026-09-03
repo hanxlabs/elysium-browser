@@ -6,7 +6,7 @@ Elysium 的受限内部浏览器服务。它使用固定版本的 CloakBrowser P
 
 - `POST /internal/v1/pages/fetch`：抓取任意公网 HTTP(S) 站点的已渲染 HTML；可携带现有 Cookie，并回传同站 Cookie。
 - `POST /internal/v1/resources/fetch`：仅供站点数据刷新使用；支持 Chromium 渲染页面 GET，以及共享 Browser Cookie 上下文的 API GET/POST。字段解析继续由 Elysium 服务端统一完成。
-- `POST /internal/v1/sites/login`：按 `app/site_login/service.py` 中注册的站点适配器执行一次登录。`audiences`、`pter`、`zmpt`、`qingwa`、`ubits`、`piggo`、`52movie`、`luckpt`、`hitpt` 仅由 Execute 插件处理，不在 Browser 网关注册；`dstudio` 已支持 Browser 网关登录。
+- `POST /internal/v1/sites/login`：按 `app/site_login/service.py` 中注册的站点适配器执行一次登录。`audiences`、`pter`、`zmpt`、`qingwa`、`ubits`、`piggo`、`52movie`、`luckpt`、`hitpt` 仅由 Execute 插件处理，不在 Browser 网关注册；`dstudio`、`agsvpt` 已支持 Browser 网关登录。
 - 每个请求使用独立浏览器上下文，不保存账号 Profile。站点登录细节必须放在独立适配器中，不能扩展为任意表单或请求代理。
 - 页面抓取只支持导航 `GET`；站点数据资源接口仅支持 `GET`/`POST`，不支持表单自动化、文件下载和其他 HTTP 方法。
 - URL、页面所有子资源及重定向均受公网地址校验限制；本机、私网和保留地址会被拒绝。
@@ -91,3 +91,7 @@ pytest -q
 ```
 
 测试不会启动浏览器或访问外部站点。
+
+### AGSVPT
+
+`agsvpt` 使用原生 `handleLogin` 表单和 `#loginBtn`，支持可选 `twoFactorSecret`。支持 `www.agsvpt.com`、`pt.agsvpt.cn`、`new.agsvpt.cn`；资料、检索和签到页面走网关通用页面抓取接口，由 Server 的 AGSVPT 解析器处理。签到直接访问 `attendance.php`，并由 Server 校验成功或已签到标记。

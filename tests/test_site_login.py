@@ -588,3 +588,30 @@ def test_pttime_atomic_dom_submit_rejects_changed_form_action():
             "tester",
             "secret",
         )
+
+
+def test_agsvpt_registers_ajax_login_and_optional_totp():
+    from app.site_login.agsvpt import DEFINITION, AgsvptLoginAdapter
+
+    service = SiteLoginService(Settings())
+    assert any(adapter.supports("agsvpt") for adapter in service._adapters)
+    assert DEFINITION.form_selector == 'form[onsubmit*="handleLogin"]'
+    assert DEFINITION.submit_selector == "#loginBtn"
+    assert DEFINITION.two_factor_field == "two_step_code"
+    assert DEFINITION.challenge is False
+    assert DEFINITION.image_captcha is False
+    for host in ("www.agsvpt.com", "pt.agsvpt.cn", "new.agsvpt.cn"):
+        assert AgsvptLoginAdapter._build_origin(f"https://{host}/login.php", DEFINITION) == f"https://{host}"
+    for url in ("https://agsvpt.com.evil.example/", "https://evilagsvpt.cn/", "http://www.agsvpt.com/"):
+        with pytest.raises(ValueError):
+            AgsvptLoginAdapter._build_origin(url, DEFINITION)
+    assert AgsvptLoginAdapter._classify(
+        "https://www.agsvpt.com/index.php",
+        '<a href="logout.php">退出</a><a class="User_Name" href="userdetails.php?id=12345">tester</a>',
+        DEFINITION,
+    ) == "success"
+    assert AgsvptLoginAdapter._classify(
+        "https://www.agsvpt.com/login.php",
+        '<form onsubmit="handleLogin(event)"><input name="password"></form>',
+        DEFINITION,
+    ) == "unknown"
