@@ -33,6 +33,7 @@ from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.tangpt import TangptLoginAdapter
 from app.site_login.vclib import VclibLoginAdapter
 from app.site_login.xdy import XdyLoginAdapter
+from app.site_login.zhuque import ZhuqueLoginAdapter
 
 
 class SiteLoginService:
@@ -55,6 +56,7 @@ class SiteLoginService:
         url_guard = OutboundUrlGuard()
         captcha_recognizer = LocalCaptchaOcr()
         self._adapters = [
+            ZhuqueLoginAdapter(settings, url_guard),
             SunnyPtLoginAdapter(settings, url_guard),
             AgsvptLoginAdapter(settings, url_guard, captcha_recognizer),
             BtschoolLoginAdapter(settings, url_guard, captcha_recognizer),

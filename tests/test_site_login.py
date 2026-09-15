@@ -22,6 +22,7 @@ from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.vclib import DEFINITION as VCLIB_DEFINITION
 from app.site_login.vclib import VclibLoginAdapter
 from app.site_login.xdy import DEFINITION as XDY_DEFINITION
+from app.site_login.zhuque import ZhuqueLoginAdapter
 from app.totp import generate_totp
 
 
@@ -124,6 +125,78 @@ def test_sunnypt_login_failure_does_not_retry():
     assert result.success is False
     assert page.evaluate_calls == 1
     assert context.closed is True
+
+
+class _ZhuqueFakePage(_FakePage):
+    """记录朱雀页面 API 调用参数。"""
+
+    url = "https://zhuque.in/entry/login"
+
+    def __init__(self, result: dict):
+        super().__init__([result])
+        self.arguments: dict | None = None
+
+    def evaluate(self, _: str, arguments: dict) -> dict:
+        self.arguments = arguments
+        return super().evaluate()
+
+
+class _ZhuqueFakeContext(_FakeContext):
+    def cookies(self, _: str) -> list[dict]:
+        return [{"name": "session", "value": "fixture-session", "domain": "zhuque.in"}]
+
+
+def test_zhuque_login_uses_first_party_api_and_returns_cookie(monkeypatch):
+    """朱雀应提交指定 JSON API、携带六位2FA，并返回 Cookie 和 CSRF。"""
+    page = _ZhuqueFakePage({
+        "status": 200,
+        "body": json.dumps({"status": 200, "code": "LOGIN_SUCCESS"}),
+        "csrfToken": "fixture-csrf",
+        "userAgent": "fixture-agent",
+        "language": "zh-CN",
+    })
+    context = _ZhuqueFakeContext(page)
+    adapter = ZhuqueLoginAdapter(
+        Settings(),
+        _AllowAllGuard(),
+        context_factory=lambda **_: context,
+    )
+    monkeypatch.setattr("app.site_login.zhuque.generate_totp", lambda *_args, **_kwargs: "123456")
+    request = SiteLoginRequest(
+        request_id="request-zhuque",
+        site_key="zhuque",
+        account_id=1,
+        site_url="https://zhuque.in",
+        credentials={
+            "username": "tester",
+            "password": "secret",
+            "twoFactorSecret": "fixture-secret",
+        },
+    )
+
+    result = adapter.login(request)
+
+    assert result.success is True
+    assert page.arguments == {
+        "apiPath": "/api/user/login",
+        "username": "tester",
+        "password": "secret",
+        "code": "123456",
+    }
+    assert result.credential is not None
+    assert result.credential.cookie == "session=fixture-session"
+    assert result.credential.headers["x-csrf-token"] == "fixture-csrf"
+    assert context.closed is True
+
+
+def test_zhuque_adapter_registration_and_url_guard():
+    """朱雀适配器应注册，并拒绝非本站 HTTPS 地址。"""
+    service = SiteLoginService(Settings())
+    assert any(adapter.supports("zhuque") for adapter in service._adapters)
+    assert ZhuqueLoginAdapter._build_origin("https://zhuque.in/entry/login") == "https://zhuque.in"
+    for url in ("http://zhuque.in/", "https://zhuque.in.evil.example/", "https://user:password@zhuque.in/"):
+        with pytest.raises(ValueError):
+            ZhuqueLoginAdapter._build_origin(url)
 
 
 def test_login_service_rejects_unregistered_site():
