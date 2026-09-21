@@ -18,6 +18,7 @@ from app.site_login.kufei import DEFINITION as KUFEI_DEFINITION
 from app.site_login.hhanclub import DEFINITION as HHANCLUB_DEFINITION
 from app.site_login.hhanclub import HhanclubLoginAdapter
 from app.site_login.service import SiteLoginService
+from app.site_login.soulvoice import DEFINITION as SOULVOICE_DEFINITION
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.vclib import DEFINITION as VCLIB_DEFINITION
 from app.site_login.vclib import VclibLoginAdapter
@@ -244,6 +245,19 @@ def test_xdy_adapter_is_registered_with_expected_login_protocol():
     assert XDY_DEFINITION.two_factor_field == "two_step_code"
     assert XDY_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
     assert XDY_DEFINITION.submit_selector == "#submit-btn"
+
+
+def test_soulvoice_adapter_is_registered_with_expected_login_protocol():
+    """聆音Club 应启用图片验证码、可选 2FA 与脚本提交按钮。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("soulvoice") for adapter in service._adapters)
+    assert SOULVOICE_DEFINITION.hosts == ("pt.soulvoice.club",)
+    assert SOULVOICE_DEFINITION.default_host == "pt.soulvoice.club"
+    assert SOULVOICE_DEFINITION.image_captcha is True
+    assert SOULVOICE_DEFINITION.two_factor_field == "two_step_code"
+    assert SOULVOICE_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert SOULVOICE_DEFINITION.submit_selector == "#submit-btn"
 
 
 def test_login_service_shares_one_ocr_recognizer_and_url_guard():

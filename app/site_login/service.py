@@ -30,6 +30,7 @@ from app.site_login.ptsbao import PtsbaoLoginAdapter
 from app.site_login.ptskit import PtskitLoginAdapter
 from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.sunnypt import SunnyPtLoginAdapter
+from app.site_login.soulvoice import SoulvoiceLoginAdapter
 from app.site_login.tangpt import TangptLoginAdapter
 from app.site_login.vclib import VclibLoginAdapter
 from app.site_login.xdy import XdyLoginAdapter
@@ -82,6 +83,7 @@ class SiteLoginService:
             PtsbaoLoginAdapter(settings, url_guard, captcha_recognizer),
             PtskitLoginAdapter(settings, url_guard, captcha_recognizer),
             PttimeLoginAdapter(settings, url_guard, captcha_recognizer),
+            SoulvoiceLoginAdapter(settings, url_guard, captcha_recognizer),
             TangptLoginAdapter(settings, url_guard, captcha_recognizer),
             VclibLoginAdapter(settings, url_guard, captcha_recognizer),
             XdyLoginAdapter(settings, url_guard, captcha_recognizer),
