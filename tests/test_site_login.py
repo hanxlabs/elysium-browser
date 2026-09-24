@@ -16,6 +16,8 @@ from app.site_login.pttime import DEFINITION as PTTIME_DEFINITION
 from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.kufei import DEFINITION as KUFEI_DEFINITION
 from app.site_login.hhanclub import DEFINITION as HHANCLUB_DEFINITION
+from app.site_login.ptlgs import DEFINITION as PTLGS_DEFINITION
+from app.site_login.ptlgs import PtlgsLoginAdapter
 from app.site_login.hhanclub import HhanclubLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.soulvoice import DEFINITION as SOULVOICE_DEFINITION
@@ -296,6 +298,19 @@ def test_hhanclub_adapter_is_registered_with_expected_login_protocol():
     assert HHANCLUB_DEFINITION.two_factor_field == "two_step_code"
     assert HHANCLUB_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
     assert HHANCLUB_DEFINITION.submit_selector == 'input[type="submit"]'
+
+
+def test_ptlgs_adapter_is_registered_with_expected_login_protocol():
+    """PTLGS 应使用 NexusPHP 图片验证码和可选两步验证。"""
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("ptlgs") for adapter in service._adapters)
+    assert PTLGS_DEFINITION.hosts == ("ptlgs.org",)
+    assert PTLGS_DEFINITION.host_suffixes == ("ptlgs.org",)
+    assert PTLGS_DEFINITION.image_captcha is True
+    assert PTLGS_DEFINITION.two_factor_field == "two_step_code"
+    assert PTLGS_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert PTLGS_DEFINITION.submit_selector == 'input[type="submit"]'
 
 
 def test_chdbits_adapter_is_registered_with_expected_login_protocol():
