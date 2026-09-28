@@ -18,6 +18,7 @@ from app.site_login.kufei import DEFINITION as KUFEI_DEFINITION
 from app.site_login.hhanclub import DEFINITION as HHANCLUB_DEFINITION
 from app.site_login.ptlgs import DEFINITION as PTLGS_DEFINITION
 from app.site_login.ptlgs import PtlgsLoginAdapter
+from app.site_login.ptfans import DEFINITION as PTFANS_DEFINITION
 from app.site_login.hhanclub import HhanclubLoginAdapter
 from app.site_login.service import SiteLoginService
 from app.site_login.soulvoice import DEFINITION as SOULVOICE_DEFINITION
@@ -311,6 +312,17 @@ def test_ptlgs_adapter_is_registered_with_expected_login_protocol():
     assert PTLGS_DEFINITION.two_factor_field == "two_step_code"
     assert PTLGS_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
     assert PTLGS_DEFINITION.submit_selector == 'input[type="submit"]'
+
+
+def test_ptfans_adapter_uses_captcha_and_native_challenge_button():
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("ptfans") for adapter in service._adapters)
+    assert PTFANS_DEFINITION.hosts == ("ptfans.cc", "cusat.win")
+    assert PTFANS_DEFINITION.image_captcha is True
+    assert PTFANS_DEFINITION.two_factor_field == "two_step_code"
+    assert PTFANS_DEFINITION.form_selector == '#login-form[action$="takelogin.php"][method="post"]'
+    assert PTFANS_DEFINITION.submit_selector == "#submit-btn"
 
 
 def test_chdbits_adapter_is_registered_with_expected_login_protocol():
