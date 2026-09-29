@@ -17,6 +17,7 @@ from app.site_login.dstudio import DstudioLoginAdapter
 from app.site_login.hddolby import HddolbyLoginAdapter
 from app.site_login.hdfans import HdfansLoginAdapter
 from app.site_login.hdhome import HdhomeLoginAdapter
+from app.site_login.hdtime import HdtimeLoginAdapter
 from app.site_login.hxpt import HxptLoginAdapter
 from app.site_login.hhanclub import HhanclubLoginAdapter
 from app.site_login.itzmx import ItzmxLoginAdapter
@@ -75,6 +76,7 @@ class SiteLoginService:
             HddolbyLoginAdapter(settings, url_guard, captcha_recognizer),
             HdfansLoginAdapter(settings, url_guard, captcha_recognizer),
             HdhomeLoginAdapter(settings, url_guard, captcha_recognizer),
+            HdtimeLoginAdapter(settings, url_guard, captcha_recognizer),
             HxptLoginAdapter(settings, url_guard, captcha_recognizer),
             HhanclubLoginAdapter(settings, url_guard, captcha_recognizer),
             ItzmxLoginAdapter(settings, url_guard, captcha_recognizer),
