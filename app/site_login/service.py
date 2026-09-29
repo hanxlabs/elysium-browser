@@ -33,6 +33,8 @@ from app.site_login.pttime import PttimeLoginAdapter
 from app.site_login.ptlgs import PtlgsLoginAdapter
 from app.site_login.ptfans import PtfansLoginAdapter
 from app.site_login.longpt import LongptLoginAdapter
+from app.site_login.march import MarchLoginAdapter
+from app.site_login.momentpt import MomentptLoginAdapter
 from app.site_login.sunnypt import SunnyPtLoginAdapter
 from app.site_login.soulvoice import SoulvoiceLoginAdapter
 from app.site_login.tangpt import TangptLoginAdapter
@@ -91,6 +93,8 @@ class SiteLoginService:
             PtlgsLoginAdapter(settings, url_guard, captcha_recognizer),
             PtfansLoginAdapter(settings, url_guard, captcha_recognizer),
             LongptLoginAdapter(settings, url_guard, captcha_recognizer),
+            MarchLoginAdapter(settings, url_guard, captcha_recognizer),
+            MomentptLoginAdapter(settings, url_guard, captcha_recognizer),
             SoulvoiceLoginAdapter(settings, url_guard, captcha_recognizer),
             TangptLoginAdapter(settings, url_guard, captcha_recognizer),
             VclibLoginAdapter(settings, url_guard, captcha_recognizer),
