@@ -20,6 +20,7 @@ from app.site_login.ptlgs import DEFINITION as PTLGS_DEFINITION
 from app.site_login.ptlgs import PtlgsLoginAdapter
 from app.site_login.ptfans import DEFINITION as PTFANS_DEFINITION
 from app.site_login.hdtime import DEFINITION as HDTIME_DEFINITION
+from app.site_login.kelu import DEFINITION as KELU_DEFINITION
 from app.site_login.longpt import DEFINITION as LONGPT_DEFINITION
 from app.site_login.hhanclub import HhanclubLoginAdapter
 from app.site_login.service import SiteLoginService
@@ -337,6 +338,17 @@ def test_longpt_adapter_uses_turnstile_and_native_challenge_button():
     assert LONGPT_DEFINITION.image_captcha is False
     assert LONGPT_DEFINITION.two_factor_field == "two_step_code"
     assert LONGPT_DEFINITION.submit_selector == "#submit-btn"
+
+
+def test_kelu_adapter_uses_captcha_otp_and_site_owned_button():
+    service = SiteLoginService(Settings())
+
+    assert any(adapter.supports("kelu") for adapter in service._adapters)
+    assert KELU_DEFINITION.hosts == ("our.kelu.one",)
+    assert KELU_DEFINITION.image_captcha is True
+    assert KELU_DEFINITION.two_factor_field == "two_step_code"
+    assert KELU_DEFINITION.form_selector == '#login-form[action$="takelogin.php"][method="post"]'
+    assert KELU_DEFINITION.submit_selector == "#submit-btn"
 
 
 def test_hdtime_adapter_uses_supplied_login_form():
