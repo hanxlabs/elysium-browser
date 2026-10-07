@@ -20,6 +20,7 @@ from app.site_login.ptlgs import DEFINITION as PTLGS_DEFINITION
 from app.site_login.ptlgs import PtlgsLoginAdapter
 from app.site_login.ptfans import DEFINITION as PTFANS_DEFINITION
 from app.site_login.hdtime import DEFINITION as HDTIME_DEFINITION
+from app.site_login.hdarea import DEFINITION as HDAREA_DEFINITION
 from app.site_login.kelu import DEFINITION as KELU_DEFINITION
 from app.site_login.longpt import DEFINITION as LONGPT_DEFINITION
 from app.site_login.hhanclub import HhanclubLoginAdapter
@@ -360,6 +361,16 @@ def test_hdtime_adapter_uses_supplied_login_form():
     assert HDTIME_DEFINITION.two_factor_field == "two_step_code"
     assert HDTIME_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
     assert HDTIME_DEFINITION.submit_selector == 'input[type="submit"][value="登录"]'
+
+
+def test_hdarea_adapter_uses_the_password_form_without_captcha_or_otp():
+    service = SiteLoginService(Settings())
+    assert any(adapter.supports("hdarea") for adapter in service._adapters)
+    assert HDAREA_DEFINITION.hosts == ("hdarea.club",)
+    assert HDAREA_DEFINITION.image_captcha is False
+    assert HDAREA_DEFINITION.two_factor_field is None
+    assert HDAREA_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert HDAREA_DEFINITION.submit_selector == 'input[type="submit"][value="登录"]'
 
 
 def test_chdbits_adapter_is_registered_with_expected_login_protocol():
