@@ -20,6 +20,7 @@ from app.site_login.hdhome import HdhomeLoginAdapter
 from app.site_login.hdtime import HdtimeLoginAdapter
 from app.site_login.hdarea import HdareaLoginAdapter
 from app.site_login.tjupt import TjuptLoginAdapter
+from app.site_login.tlfbits import TlfbitsLoginAdapter
 from app.site_login.kelu import KeluLoginAdapter
 from app.site_login.hxpt import HxptLoginAdapter
 from app.site_login.hhanclub import HhanclubLoginAdapter
@@ -84,6 +85,7 @@ class SiteLoginService:
             HdtimeLoginAdapter(settings, url_guard, captcha_recognizer),
             HdareaLoginAdapter(settings, url_guard, captcha_recognizer),
             TjuptLoginAdapter(settings, url_guard, captcha_recognizer),
+            TlfbitsLoginAdapter(settings, url_guard, captcha_recognizer),
             KeluLoginAdapter(settings, url_guard, captcha_recognizer),
             HxptLoginAdapter(settings, url_guard, captcha_recognizer),
             HhanclubLoginAdapter(settings, url_guard, captcha_recognizer),

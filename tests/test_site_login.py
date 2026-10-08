@@ -22,6 +22,7 @@ from app.site_login.ptfans import DEFINITION as PTFANS_DEFINITION
 from app.site_login.hdtime import DEFINITION as HDTIME_DEFINITION
 from app.site_login.hdarea import DEFINITION as HDAREA_DEFINITION
 from app.site_login.tjupt import DEFINITION as TJUPT_DEFINITION
+from app.site_login.tlfbits import DEFINITION as TLFBITS_DEFINITION
 from app.site_login.kelu import DEFINITION as KELU_DEFINITION
 from app.site_login.longpt import DEFINITION as LONGPT_DEFINITION
 from app.site_login.hhanclub import HhanclubLoginAdapter
@@ -340,6 +341,16 @@ def test_longpt_adapter_uses_turnstile_and_native_challenge_button():
     assert LONGPT_DEFINITION.image_captcha is False
     assert LONGPT_DEFINITION.two_factor_field == "two_step_code"
     assert LONGPT_DEFINITION.submit_selector == "#submit-btn"
+
+
+def test_tlfbits_adapter_uses_supplied_captcha_password_form():
+    service = SiteLoginService(Settings())
+    assert any(adapter.supports("tlfbits") for adapter in service._adapters)
+    assert TLFBITS_DEFINITION.hosts == ("pt.eastgame.org",)
+    assert TLFBITS_DEFINITION.image_captcha is True
+    assert TLFBITS_DEFINITION.two_factor_field is None
+    assert TLFBITS_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert TLFBITS_DEFINITION.submit_selector == 'input[type="submit"][value="登录"]'
 
 
 def test_kelu_adapter_uses_captcha_otp_and_site_owned_button():
