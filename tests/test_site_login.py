@@ -21,6 +21,7 @@ from app.site_login.ptlgs import PtlgsLoginAdapter
 from app.site_login.ptfans import DEFINITION as PTFANS_DEFINITION
 from app.site_login.hdtime import DEFINITION as HDTIME_DEFINITION
 from app.site_login.hdarea import DEFINITION as HDAREA_DEFINITION
+from app.site_login.tjupt import DEFINITION as TJUPT_DEFINITION
 from app.site_login.kelu import DEFINITION as KELU_DEFINITION
 from app.site_login.longpt import DEFINITION as LONGPT_DEFINITION
 from app.site_login.hhanclub import HhanclubLoginAdapter
@@ -777,3 +778,12 @@ def test_agsvpt_registers_ajax_login_and_optional_totp():
         '<form onsubmit="handleLogin(event)"><input name="password"></form>',
         DEFINITION,
     ) == "unknown"
+
+
+def test_tjupt_adapter_uses_native_javascript_login_button():
+    service = SiteLoginService(Settings())
+    assert any(adapter.supports("tjupt") for adapter in service._adapters)
+    assert TJUPT_DEFINITION.hosts == ("tjupt.org", "www.tjupt.org")
+    assert TJUPT_DEFINITION.image_captcha is False
+    assert TJUPT_DEFINITION.form_selector == 'form[action$="takelogin.php"][method="post"]'
+    assert TJUPT_DEFINITION.submit_selector == 'input[type="button"][value="登录"]'
