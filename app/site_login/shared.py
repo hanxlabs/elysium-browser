@@ -26,10 +26,12 @@ _CREDENTIAL_ERROR = re.compile(
     r"身份凭据与站点记录不符合|账号或密码错误|帳號或密碼錯誤",
     re.I,
 )
+# The verification page always warns about "错误尝试" before any code is submitted.
 _TWO_FACTOR_ERROR = re.compile(
     r"两步验证码错误|兩步驗證碼錯誤|两步验证码未输入|兩步驗證碼未輸入|"
     r"两步验证\s*code\s*无效|兩步驗證\s*code\s*無效|"
-    r"(?:2FA|二步验证|二步驗證|两步验证|兩步驗證|动态口令).{0,24}(?:错误|錯誤|无效|無效|失败|失敗)",
+    r"(?:2FA|二步验证|二步驗證|两步验证|兩步驗證|动态口令).{0,24}"
+    r"(?:错误(?!尝试)|錯誤(?!嘗試)|无效|無效|失败|失敗)",
     re.I,
 )
 _TURNSTILE_ERROR = re.compile(
@@ -48,11 +50,11 @@ _CF_MARKERS = (
     "cloudflare ray id",
 )
 _SENSITIVE_INPUT = re.compile(
-    r"""(<input\b[^>]*\bname=["'](?:password|imagestring|two_step_code|scode|2fa|response|_token|cf-turnstile-response)["'][^>]*\bvalue=["'])[^"']*""",
+    r"""(<input\b[^>]*\bname=["'](?:password|imagestring|two_step_code|scode|2fa|verify_code|response|_token|cf-turnstile-response)["'][^>]*\bvalue=["'])[^"']*""",
     re.I,
 )
 _SENSITIVE_INPUT_REVERSED = re.compile(
-    r"""(<input\b[^>]*\bvalue=["'])[^"']*(["'][^>]*\bname=["'](?:password|imagestring|two_step_code|scode|2fa|response|_token|cf-turnstile-response)["'])""",
+    r"""(<input\b[^>]*\bvalue=["'])[^"']*(["'][^>]*\bname=["'](?:password|imagestring|two_step_code|scode|2fa|verify_code|response|_token|cf-turnstile-response)["'])""",
     re.I,
 )
 _SENSITIVE_TEXTAREA = re.compile(
@@ -79,6 +81,8 @@ class SiteDefinition:
     cloudflare_managed: bool = False
     atomic_dom_submit: bool = False
     host_suffixes: tuple[str, ...] = ()
+    two_factor_form_selector: str | None = None
+    two_factor_submit_selector: str = 'input[type="submit"]'
 
 
 class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
@@ -274,6 +278,7 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                     definition.two_factor_field
                     and two_factor_secret
                     and not definition.atomic_dom_submit
+                    and not definition.two_factor_form_selector
                 ):
                     stage = "generate-two-factor-code"
                     code = generate_totp(two_factor_secret, minimum_validity_seconds=5)
@@ -292,6 +297,30 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                     timeout_seconds=min(timeout_seconds, 30),
                 )
                 self._ensure_allowed_page_url(page.url, definition)
+                if outcome == "two_factor_required":
+                    if not two_factor_secret:
+                        outcome = "two_factor_secret_missing"
+                    else:
+                        stage = "inspect-two-factor-form"
+                        verify_form = page.locator(definition.two_factor_form_selector)
+                        if verify_form.count() != 1:
+                            raise RuntimeError(f"{definition.label}两步验证表单无法确认")
+                        self._ensure_form_action(
+                            verify_form.get_attribute("action"), page.url, site_origin, definition,
+                        )
+                        stage = "generate-two-factor-code"
+                        code = generate_totp(two_factor_secret, minimum_validity_seconds=5)
+                        secrets.append(code)
+                        verify_form.locator(
+                            f'input[name="{definition.two_factor_field}"]',
+                        ).fill(code)
+                        stage = "submit-two-factor-form"
+                        verify_form.locator(definition.two_factor_submit_selector).first.click()
+                        stage = "inspect-two-factor-result"
+                        outcome, html = self._wait_for_page_outcome(
+                            page, definition, timeout_seconds=min(timeout_seconds, 30),
+                        )
+                        self._ensure_allowed_page_url(page.url, definition)
                 if outcome == "success":
                     return self._success(request, started_at, page, context, site_origin, definition)
                 if outcome == "captcha_error" and attempt < attempts:
@@ -308,6 +337,8 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                     "captcha_error": f"{definition.label}图片验证码错误",
                     "credential_error": f"{definition.label}用户名或密码不正确",
                     "two_factor_error": f"{definition.label}2FA验证码错误，请检查2FA密钥和系统时间",
+                    "two_factor_required": f"{definition.label}2FA验证未通过，请检查2FA密钥和系统时间",
+                    "two_factor_secret_missing": f"{definition.label}两步验证需要在账号中配置2FA密钥",
                     "turnstile_error": f"{definition.label}Cloudflare Turnstile验证未通过",
                 }
                 return self._failure(
@@ -325,7 +356,8 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 response=response, blocked=blocked_requests, secrets=secrets, error=error,
                 runtime=runtime_diagnostics,
             )
-            logger.exception(
+            # Playwright call logs can contain filled credentials; diagnostics above are redacted.
+            logger.error(
                 "%s Browser自动登录异常: request_id=%s stage=%s error_type=%s",
                 definition.label, request.request_id, stage, type(error).__name__,
             )
@@ -608,6 +640,11 @@ class ConfiguredSiteLoginAdapter(BtschoolLoginAdapter):
                 outcome = self._classify(page.url, last_html, definition)
                 if outcome != "unknown":
                     return outcome, last_html
+                if (
+                    definition.two_factor_form_selector
+                    and page.locator(definition.two_factor_form_selector).count()
+                ):
+                    return "two_factor_required", last_html
                 if accept_login_form and page.locator(definition.form_selector).count():
                     return "login", last_html
             except Exception:

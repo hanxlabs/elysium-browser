@@ -99,3 +99,7 @@ pytest -q
 ### AGSVPT
 
 `agsvpt` 使用原生 `handleLogin` 表单和 `#loginBtn`，支持可选 `twoFactorSecret`。支持 `www.agsvpt.com`、`pt.agsvpt.cn`、`new.agsvpt.cn`；资料、检索和签到页面走网关通用页面抓取接口，由 Server 的 AGSVPT 解析器处理。签到直接访问 `attendance.php`，并由 Server 校验成功或已签到标记。
+
+### 北洋园
+
+`tjupt` 先通过原生 `submitLogin()` 按钮提交账号密码；启用两步验证时，在同一浏览器上下文中识别 `verifyform`，使用账号配置的 `twoFactorSecret` 生成六位 TOTP，填写 `verify_code` 后提交，保留站点返回的隐藏字段。未启用两步验证时直接完成登录；缺少密钥、密钥无效或验证码错误时返回明确失败，不重复提交验证码。
