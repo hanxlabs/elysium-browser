@@ -96,6 +96,10 @@ pytest -q
 
 `hdarea` 支持 `hdarea.club` 的账号密码自动登录，使用原生 `takelogin.php` 表单和“登录”提交按钮。提供的登录页不含图片验证码或 2FA。资料与种子页面由 Server 的 HDArea 解析器处理；签到使用 Server/Execute 的专用 POST 策略。
 
+### HDDolby
+
+`hddolby` 自动登录使用新域名 `https://www.uhddolby.com/`，保留图片验证码与可选 `2fa` 协议。旧域名 `hddolby.com`、`www.hddolby.com` 及新裸域 `uhddolby.com` 的账号配置会直接在新 www 域登录，返回该域的 Cookie 和 Referer。
+
 ### AGSVPT
 
 `agsvpt` 使用原生 `handleLogin` 表单和 `#loginBtn`，支持可选 `twoFactorSecret`。支持 `www.agsvpt.com`、`pt.agsvpt.cn`、`new.agsvpt.cn`；资料、检索和签到页面走网关通用页面抓取接口，由 Server 的 AGSVPT 解析器处理。签到直接访问 `attendance.php`，并由 Server 校验成功或已签到标记。
