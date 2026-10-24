@@ -107,3 +107,7 @@ pytest -q
 ### 北洋园
 
 `tjupt` 先通过原生 `submitLogin()` 按钮提交账号密码；启用两步验证时，在同一浏览器上下文中识别 `verifyform`，使用账号配置的 `twoFactorSecret` 生成六位 TOTP，填写 `verify_code` 后提交，保留站点返回的隐藏字段。未启用两步验证时直接完成登录；缺少密钥、密钥无效或验证码错误时返回明确失败，不重复提交验证码。
+
+### 可乐
+
+`colapt` 使用 ReelCore 的同源 JSON API：`POST /api/v1/sessions` 登录，按需使用 `twoFactorSecret` 生成 TOTP 后提交 `/api/v1/sessions/verify`，再读取 `/api/v1/me` 确认会话并返回 Cookie、`X-CSRF-Token` 和后续请求 Header。支持 `www.colapt.com`、`colapt.com`。账号密码和验证码均只提交一次；人机验证、两步验证设置、账号恢复或改密要求会明确提示在站点完成操作。本站不配置签到和辅种。

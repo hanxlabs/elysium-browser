@@ -8,6 +8,7 @@ from app.site_login.base import SiteLoginAdapter
 from app.site_login.agsvpt import AgsvptLoginAdapter
 from app.site_login.btschool import BtschoolLoginAdapter
 from app.site_login.chdbits import ChdbitsLoginAdapter
+from app.site_login.colapt import ColaptLoginAdapter
 from app.site_login.crabpt import CrabptLoginAdapter
 from app.site_login.cspt import CsptLoginAdapter
 from app.site_login.cyanbug import CyanbugLoginAdapter
@@ -68,6 +69,7 @@ class SiteLoginService:
         captcha_recognizer = LocalCaptchaOcr()
         self._adapters = [
             ZhuqueLoginAdapter(settings, url_guard),
+            ColaptLoginAdapter(settings, url_guard),
             SunnyPtLoginAdapter(settings, url_guard),
             AgsvptLoginAdapter(settings, url_guard, captcha_recognizer),
             BtschoolLoginAdapter(settings, url_guard, captcha_recognizer),
